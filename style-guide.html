@@ -130,8 +130,12 @@
 
 <h2 id="azure-resources">Azure resources</h2>
 <ul>
-<li>Every resource created by Bicep or by a script carries the tags <code>course=aro-k8s</code> and <code>chapter=NN</code>, where <code>NN</code> is the two-digit chapter number.</li>
-<li>A resource type that cannot carry tags (budgets, role assignments) is preceded in Bicep by a comment that starts with <code>// untaggable:</code> and says why.</li>
+<li>Every resource created by Terraform or by a script carries the tags <code>course=aro-k8s</code> and <code>chapter=NN</code>, where <code>NN</code> is the two-digit chapter number. In Terraform, each resource sets <code>tags = local.tags</code>.</li>
+<li>A resource type that cannot carry tags (budgets, role assignments, subnets) is preceded in Terraform by a comment that starts with <code># untaggable:</code> and says why.</li>
+<li>A chapter that creates Azure resources keeps its Terraform files in <code>lab/infra</code>: <code>versions.tf</code> with the versions, an empty <code>azurerm</code> backend block and the provider settings, the resources, and the committed <code>.terraform.lock.hcl</code>.</li>
+<li>The state of every chapter lives in the storage account that chapter 0 setup creates, in the container <code>tfstate</code>, one blob per chapter named after the chapter folder. Scripts pass the backend settings with <code>terraform init -backend-config</code> and reach the account with Microsoft Entra ID, never with an account key.</li>
+<li>Scripts pass values to Terraform through <code>TF_VAR_</code> environment variables, and set <code>TF_DATA_DIR</code> to <code>~/.aro-k8s/terraform/&lt;chapter folder&gt;</code>, so that no Terraform working file lands in the course folder.</li>
+<li>On the lab VM, Terraform signs in with the managed identity of the VM, and the provider never registers resource providers: chapter 0 setup registers them.</li>
 <li>Teardown scripts end by listing everything still tagged <code>course=aro-k8s</code>.</li>
 </ul>
 
@@ -142,12 +146,14 @@
 <p>Run these from the course root before publishing a change:</p>
 <pre><code class="language-bash">shellcheck scripts/*.sh chapters/*/lab/*.sh
 pwsh -c "Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1"
-for f in $(find chapters -name '*.bicep'); do az bicep build --file "$f" --stdout &gt; /dev/null; done
+terraform fmt -check -recursive chapters
+for d in chapters/*/lab/infra; do terraform -chdir="$d" init -backend=false -input=false &gt; /dev/null &amp;&amp; terraform -chdir="$d" validate; done
 npx html-validate "**/*.html"
 python3 scripts/build-lab-sheets.py
 python3 scripts/build-search-index.py
 python3 scripts/check-course.py
 </code></pre>
+<p><code>terraform init -backend=false</code> downloads the provider without reaching the state. It leaves a <code>.terraform</code> folder in each <code>infra</code> folder, which Git ignores and the checker skips.</p>
 <p><code>scripts/check-course.py</code> checks the writing rules in every page, the internal links and anchors, the alternative text of images, the tags, the personal data rules, the pinned tool versions, the search index and the parity between the bash and PowerShell scripts. To also search for names that must never appear (your own name, an employer, a client), put them in the <code>PRIVATE_TERMS</code> environment variable, separated by commas. Never write them in a file of the course.</p>
 </main>
 <aside class="page-toc" id="page-toc" aria-label="On this page"></aside>

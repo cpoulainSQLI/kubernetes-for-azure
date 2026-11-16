@@ -44,15 +44,33 @@ fi
 
 step "Deleting the chapter 1 registry"
 ensure_vm_identity_login
-registry_names="$(az acr list --resource-group "$(rg_name)" \
-  --query "[?tags.course=='${COURSE_TAG_VALUE}' && tags.chapter=='${CHAPTER}'].name" --output tsv 2>/dev/null || true)"
-if [[ -z "$registry_names" ]]; then
-  info "No chapter 1 registry found."
-else
-  while IFS= read -r name; do
-    az acr delete --name "$name" --yes --output none
-    info "Deleted registry ${name}."
-  done <<<"$registry_names"
+destroyed="false"
+if command -v terraform >/dev/null 2>&1; then
+  sub_id="$(az account show --query id --output tsv)"
+  tenant_id="$(az account show --query tenantId --output tsv)"
+  infra_dir="${SCRIPT_DIR}/infra"
+  terraform_env "01-containers" "$sub_id"
+  export ARM_USE_MSI=true ARM_TENANT_ID="$tenant_id"
+  lab_rg="$(rg_name)"
+  export TF_VAR_prefix="$PREFIX" TF_VAR_resource_group_name="$lab_rg" TF_VAR_chapter="$CHAPTER"
+  if terraform_init "$infra_dir" "$(state_account_name "$sub_id")" "01-containers.tfstate" &&
+    terraform_in "$infra_dir" destroy -auto-approve; then
+    destroyed="true"
+    info "Terraform deleted what chapter 1 setup created."
+  fi
+fi
+if [[ "$destroyed" != "true" ]]; then
+  info "Terraform could not do it. Deleting every registry tagged for chapter 1 with the Azure CLI."
+  registry_names="$(az acr list --resource-group "$(rg_name)" \
+    --query "[?tags.course=='${COURSE_TAG_VALUE}' && tags.chapter=='${CHAPTER}'].name" --output tsv 2>/dev/null || true)"
+  if [[ -z "$registry_names" ]]; then
+    info "No chapter 1 registry found."
+  else
+    while IFS= read -r name; do
+      az acr delete --name "$name" --yes --output none
+      info "Deleted registry ${name}."
+    done <<<"$registry_names"
+  fi
 fi
 
 list_course_resources

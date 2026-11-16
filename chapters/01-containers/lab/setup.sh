@@ -28,6 +28,7 @@ require_lab_vm
 load_env
 require_cmd docker "Run chapter 0 setup again: Docker should be on the lab VM."
 require_cmd az "Run chapter 0 setup again: the Azure CLI should be on the lab VM."
+require_cmd terraform "Run chapter 0 setup again: Terraform should be on the lab VM."
 
 if ! docker info >/dev/null 2>&1; then
   die "Docker does not answer. If chapter 0 just finished, disconnect and reconnect so your docker group membership applies."
@@ -46,14 +47,22 @@ if ! confirm "Create or update the chapter 1 registry in $(rg_name)?"; then
   exit 0
 fi
 
-step "Deploying the registry (about a minute)"
-registry_name="$(az deployment group create \
-  --resource-group "$(rg_name)" \
-  --name "${PREFIX}-ch${CHAPTER}-registry" \
-  --template-file "${SCRIPT_DIR}/infra/registry.bicep" \
-  --parameters prefix="$PREFIX" location="$REGION" chapter="$CHAPTER" \
-  --query properties.outputs.name.value --output tsv --only-show-errors)"
-login_server="$(az acr show --name "$registry_name" --query loginServer --output tsv)"
+step "Creating the registry with Terraform (about a minute)"
+sub_id="$(az account show --query id --output tsv)"
+tenant_id="$(az account show --query tenantId --output tsv)"
+infra_dir="${SCRIPT_DIR}/infra"
+terraform_env "01-containers" "$sub_id"
+# Terraform signs in with the lab VM's managed identity, like the Azure CLI above.
+export ARM_USE_MSI=true ARM_TENANT_ID="$tenant_id"
+lab_rg="$(rg_name)"
+export TF_VAR_prefix="$PREFIX" TF_VAR_resource_group_name="$lab_rg" TF_VAR_chapter="$CHAPTER"
+if ! terraform_init "$infra_dir" "$(state_account_name "$sub_id")" "01-containers.tfstate"; then
+  die "terraform init failed. Check that chapter 0 setup finished, then run this script again."
+fi
+if ! terraform_in "$infra_dir" apply -auto-approve; then
+  die "terraform apply failed. Read the message above, fix the cause and run this script again."
+fi
+login_server="$(terraform_in "$infra_dir" output -raw login_server)"
 info "Registry ready: ${login_server}"
 
 step "Copying the sample app to ${WORK_DIR}"

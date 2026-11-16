@@ -8,11 +8,11 @@ Checks:
      no bold, no "eg" in brackets, no filler words, sentence-case headings.
   2. Page template, internal links and anchors (including the navigation in
      assets/course.js), alternative text of images, and platform tabs.
-  3. Every Azure resource in Bicep carries the course and chapter tags, or is
-     marked with an "// untaggable:" comment, and scripts tag what they create.
+  3. Every Azure resource in Terraform carries the course and chapter tags, or is
+     marked with a "# untaggable:" comment, and scripts tag what they create.
   4. No subscription or tenant ID (any GUID except built-in role IDs), public IP
      address, e-mail address or secret in any file.
-  5. The pinned kind and kubectl versions agree across files.
+  5. The pinned kind, kubectl and Terraform versions agree across files.
   6. The search index is up to date.
   7. The bash and PowerShell versions of each laptop script have the same
      "# check:" and "# step:" IDs, and PowerShell files are plain ASCII.
@@ -33,8 +33,9 @@ ROOT = Path(__file__).resolve().parent.parent
 ARCHIVED = ("archive/lessons/", "archive/reference/", "archive/assets/", "archive/tools/")
 # Names the checks leave alone: tool folders, and what Git ignores on the author's machine. These are the local
 # notes, the agent instructions and .claude, where a coding agent keeps its settings and its working copies.
-SKIP_NAMES = {".git", "node_modules", "handoff", "CLAUDE.md", "CLAUDE.local.md", ".claude"}
-TEXT_SUFFIXES = {".md", ".html", ".sh", ".ps1", ".psd1", ".bicep", ".yaml", ".yml", ".go", ".mod", ".py", ".css", ".js", ".json", ""}
+# .terraform holds the providers that terraform init downloads when the checks run.
+SKIP_NAMES = {".git", "node_modules", "handoff", "CLAUDE.md", "CLAUDE.local.md", ".claude", ".terraform"}
+TEXT_SUFFIXES = {".md", ".html", ".sh", ".ps1", ".psd1", ".tf", ".hcl", ".yaml", ".yml", ".go", ".mod", ".py", ".css", ".js", ".json", ""}
 PLATFORMS = {"windows", "macos", "linux"}
 
 # IDs of Azure built-in roles: identical in every tenant, so they are not personal data.
@@ -49,7 +50,7 @@ PROPER_PHRASES = [
     "Developer Sandbox", "Open Container Initiative", "Network Watcher", "Git Bash", "Windows PowerShell",
 ]
 PROPER_WORDS = {
-    "Azure", "Kubernetes", "OpenShift", "Docker", "Dockerfile", "Microsoft", "Bicep", "Ubuntu", "Go", "Git",
+    "Azure", "Kubernetes", "OpenShift", "Docker", "Dockerfile", "Microsoft", "Terraform", "HashiCorp", "Ubuntu", "Go", "Git",
     "Bash", "PowerShell", "Podman", "Entra", "Linux", "Windows", "macOS", "Mermaid", "AKS", "ARO", "ACR", "Helm",
     "NodePort", "ClusterIP", "LoadBalancer", "ReplicaSet", "ReplicaSets", "Deployment", "Deployments",
     "Service", "Services", "Pod", "Pods", "EndpointSlice", "EndpointSlices", "Namespace", "Namespaces",
@@ -321,29 +322,29 @@ def check_personal_data(path, text, private_terms):
                 report(path, number, "private term from PRIVATE_TERMS")
 
 
-def check_bicep_tags(path, text):
+def check_terraform_tags(path, text):
+    """Every resource carries tags = local.tags, or follows a "# untaggable:" comment that says why."""
     lines = text.splitlines()
-    receives_tags = re.search(r"^param tags object", text, re.MULTILINE)
-    if "resource " in text and not receives_tags:
-        if not re.search(r"course:\s*'aro-k8s'", text):
-            report(path, 1, "no tags variable with course: 'aro-k8s'")
-        if not re.search(r"chapter:\s*chapter", text):
-            report(path, 1, "no chapter tag")
-    if re.search(r"^module ", text, re.MULTILINE) and not re.search(r"^\s+tags:\s*tags$", text, re.MULTILINE):
-        report(path, 1, "a module does not receive the tags")
+    uses_tags = False
     for index, line in enumerate(lines):
-        match = re.match(r"^resource\s+(\w+)\s+'([^']+)'\s*(existing)?", line)
-        if not match or match.group(3):
+        match = re.match(r'^resource\s+"(\w+)"\s+"(\w+)"\s*\{', line)
+        if not match:
             continue
         block = []
         for following in lines[index + 1:]:
             if following.startswith("}"):
                 break
             block.append(following)
-        has_tags = any(re.match(r"^\s{2}tags:\s*tags\b", entry) for entry in block)
-        marked = any("// untaggable:" in previous for previous in lines[max(0, index - 3):index])
+        has_tags = any(re.match(r"^\s{2}tags\s*=\s*local\.tags\s*$", entry) for entry in block)
+        marked = any("# untaggable:" in previous for previous in lines[max(0, index - 3):index])
+        uses_tags = uses_tags or has_tags
         if not has_tags and not marked:
-            report(path, index + 1, f"resource '{match.group(1)}' has no 'tags: tags' and no '// untaggable:' comment")
+            report(path, index + 1, f"resource {match.group(1)}.{match.group(2)} has no 'tags = local.tags' and no '# untaggable:' comment")
+    if uses_tags:
+        # local.tags may be defined in another file of the same configuration folder.
+        folder = "\n".join(tf.read_text(encoding="utf-8") for tf in sorted(path.parent.glob("*.tf")))
+        if not re.search(r'course\s*=\s*"aro-k8s"', folder) or not re.search(r"chapter\s*=\s*var\.chapter\b", folder):
+            report(path, 1, 'local.tags is not defined with course = "aro-k8s" and chapter = var.chapter in this folder')
 
 
 def check_script_tags(path, text):
@@ -353,9 +354,13 @@ def check_script_tags(path, text):
             continue
         if path.suffix == ".sh":
             create = re.search(r"\baz\s+([a-z-]+(?:\s+[a-z-]+)*)\s+create\b", stripped)
-            if create and not create.group(1).startswith(("deployment", "role assignment")) and "--tags" not in stripped:
+            # Role assignments and blob containers do not accept tags.
+            untaggable = ("deployment", "role assignment", "storage container-rm")
+            if create and not create.group(1).startswith(untaggable) and "--tags" not in stripped:
                 report(path, number, f"'az {create.group(1)} create' without --tags")
-        elif "'create'" in stripped and "'deployment'" not in stripped and "'--tags'" not in stripped:
+        elif "'create'" in stripped and "'--tags'" not in stripped and not any(
+            word in stripped for word in ("'deployment'", "'assignment'", "'container-rm'")
+        ):
             report(path, number, "az create call without '--tags'")
 
 
@@ -371,6 +376,11 @@ def check_version_pins():
         "lib.sh kubectl": re.search(r'PINNED_KUBECTL_MINOR="([^"]+)"', lib),
         "lib.ps1 kubectl": re.search(r"\$PinnedKubectlMinor = '([^']+)'", lib_ps),
         "cloud-init kubectl": re.search(r'KUBECTL_MINOR="([^"]+)"', cloud_init),
+        "lib.sh terraform": re.search(r'PINNED_TERRAFORM_VERSION="([^"]+)"', lib),
+        "lib.ps1 terraform": re.search(r"\$PinnedTerraformVersion = '([^']+)'", lib_ps),
+        "cloud-init terraform": re.search(r'^\s*TERRAFORM_VERSION="([^"]+)"', cloud_init, re.MULTILINE),
+        "lib.sh terraform minimum": re.search(r'TERRAFORM_MIN_VERSION="([^"]+)"', lib),
+        "lib.ps1 terraform minimum": re.search(r"\$TerraformMinVersion = '([^']+)'", lib_ps),
     }
     missing = [name for name, match in pins.items() if not match]
     if missing:
@@ -387,6 +397,17 @@ def check_version_pins():
     node_versions = set(re.findall(r"kindest/node:(v\d+\.\d+)\.\d+@sha256:[0-9a-f]{64}", kind_file))
     if node_versions != kubectl_versions:
         errors.append(f"version pins: kind node images {sorted(node_versions)} do not match kubectl {sorted(kubectl_versions)}")
+    terraform_versions = {pins[name].group(1) for name in pins if name.endswith("terraform")}
+    terraform_minimums = {pins[name].group(1) for name in pins if name.endswith("terraform minimum")}
+    if len(terraform_versions) != 1:
+        errors.append(f"version pins: Terraform versions differ {sorted(terraform_versions)}")
+    if len(terraform_minimums) != 1:
+        errors.append(f"version pins: minimum Terraform versions differ {sorted(terraform_minimums)}")
+    required = set()
+    for versions_file in sorted(ROOT.glob("chapters/*/lab/infra/versions.tf")):
+        required.update(re.findall(r'required_version\s*=\s*">=\s*([0-9.]+)"', versions_file.read_text(encoding="utf-8")))
+    if required != terraform_minimums:
+        errors.append(f"version pins: required_version in versions.tf {sorted(required)} does not match the minimum {sorted(terraform_minimums)}")
 
 
 def check_search_index():
@@ -509,8 +530,8 @@ def main():
             check_html(path.resolve(), pages)
         if path.suffix == ".md":
             check_markdown(path, text)
-        if path.suffix == ".bicep":
-            check_bicep_tags(path, text)
+        if path.suffix == ".tf":
+            check_terraform_tags(path, text)
         if path.suffix in {".sh", ".ps1"}:
             check_script_tags(path, text)
         if path.suffix in {".ps1", ".psd1"} and not text.isascii():

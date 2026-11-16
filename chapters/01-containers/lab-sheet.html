@@ -99,7 +99,7 @@
 # 5. Teardown, once the report passes: removes the container and the registry
 ~/aro-k8s-course/chapters/01-containers/lab/teardown.sh
 </code></pre>
-<p>Setup signs the Azure CLI in with the VM's managed identity, deploys the registry from <a href="lab/infra/registry.bicep">lab/infra/registry.bicep</a> and prints its login server. Keep the local images when you are done: chapter 2 uses them.</p>
+<p>Setup signs the Azure CLI in with the VM's managed identity, creates the registry with Terraform from <a href="lab/infra/main.tf">lab/infra/main.tf</a> and prints its login server. Terraform signs in with the same identity and keeps the state of the registry in the storage account of chapter 0, so teardown deletes exactly what setup created. Keep the local images when you are done: chapter 2 uses them.</p>
 <p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/01-containers/index.html">reference solution</a>.</p>
 <h3 id="how-the-validation-works">How the validation works</h3>
 <p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>

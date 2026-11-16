@@ -146,6 +146,33 @@ elseif ($dsv5.Limit -ge 44) { Add-Pass "DSv5 family vCPUs: $($dsv5.Used) used of
 else { Add-Warn "DSv5 family vCPU limit is $($dsv5.Limit). The default ARO node sizes need 44 at install time." 'Request an increase for Standard DSv5 Family vCPUs before chapter 8.' }
 
 # ---------------------------------------------------------------------------
+Write-Step 'Terraform and its state'
+# check: terraform-cli
+$tfVersion = ''
+if (Test-Command 'terraform') { $tfVersion = Get-TerraformVersion }
+if (-not $tfVersion) { Add-Fail 'Terraform is not installed on this computer.' 'Install it: https://developer.hashicorp.com/terraform/install' }
+elseif ([version]$tfVersion -ge [version]$TerraformMinVersion) { Add-Pass "Terraform $tfVersion is installed." }
+else { Add-Fail "Terraform $tfVersion is installed, the course needs $TerraformMinVersion or later." 'Install a newer version: https://developer.hashicorp.com/terraform/install' }
+
+# check: tfstate-storage
+$stateAccount = Get-StateAccountName $subId
+$stateInfo = Get-AzJson @('storage', 'account', 'show', '--resource-group', (Get-StateRgName), '--name', $stateAccount)
+if (-not $stateInfo) { Add-Fail "No Terraform state storage account $stateAccount in $(Get-StateRgName)." 'Run chapter 0 setup.' }
+elseif ((Get-Prop $stateInfo 'tags.course') -eq $CourseTagValue -and (Get-Prop $stateInfo 'tags.chapter') -eq $Chapter -and (Get-Prop $stateInfo 'allowSharedKeyAccess') -eq $false) {
+    Add-Pass "State storage account $stateAccount has the course tags and refuses account keys."
+}
+else { Add-Warn "State storage account $stateAccount is missing the course tags or accepts account keys." 'Run chapter 0 setup again.' }
+
+# check: tfstate-blob
+$blobExists = ''
+if ($stateInfo) {
+    $blobExists = Get-AzValue @('storage', 'blob', 'exists', '--account-name', $stateAccount, '--container-name', $StateContainer,
+        '--name', '00-lab-setup.tfstate', '--auth-mode', 'login', '--query', 'exists')
+}
+if ($blobExists -eq 'true') { Add-Pass "The state of chapter 0 is in $stateAccount/$StateContainer, and your account can read it." }
+else { Add-Fail 'The state of chapter 0 is missing, or your account cannot read it.' 'Run chapter 0 setup. A new role can take up to 10 minutes to apply.' }
+
+# ---------------------------------------------------------------------------
 Write-Step 'Budget'
 # check: budget-exists
 # check: budget-amount
@@ -230,8 +257,14 @@ else { Add-Fail 'No NSG rule allows SSH to the lab VM.' 'Run chapter 0 setup aga
 $principalId = Get-Prop $vmInfo 'identity.principalId'
 if ($principalId) {
     $roles = @(@(Get-AzJson @('role', 'assignment', 'list', '--assignee', $principalId, '--scope', (Get-Prop $group 'id'))) | Where-Object { $null -ne $_ } | ForEach-Object { $_.roleDefinitionName })
-    if ($roles -contains 'Contributor' -and $roles -contains 'AcrPush') { Add-Pass "The VM managed identity has Contributor and AcrPush on $rg." }
-    else { Add-Fail "The VM managed identity lacks Contributor or AcrPush on $rg." 'Run chapter 0 setup again. Role assignments can take a few minutes to appear.' }
+    $stateRoles = @()
+    if ($stateInfo) {
+        $stateRoles = @(@(Get-AzJson @('role', 'assignment', 'list', '--assignee', $principalId, '--scope', (Get-Prop $stateInfo 'id'))) | Where-Object { $null -ne $_ } | ForEach-Object { $_.roleDefinitionName })
+    }
+    if ($roles -contains 'Contributor' -and $roles -contains 'AcrPush' -and $stateRoles -contains 'Storage Blob Data Contributor') {
+        Add-Pass "The VM managed identity has Contributor and AcrPush on $rg, and Storage Blob Data Contributor on the state storage."
+    }
+    else { Add-Fail "The VM managed identity lacks Contributor or AcrPush on $rg, or Storage Blob Data Contributor on the state storage." 'Run chapter 0 setup again. Role assignments can take up to 10 minutes to appear.' }
 }
 else {
     Add-Fail 'The lab VM has no managed identity.' 'Run chapter 0 setup again.'
@@ -258,6 +291,7 @@ printf 'kubectl=%s\n' "$(kubectl version --client -o json 2>/dev/null | jq -r '.
 printf 'az=%s\n' "$(az version --query '"azure-cli"' --output tsv 2>/dev/null || echo missing)"
 printf 'git=%s\n' "$(git --version 2>/dev/null | awk '{print $3}' || echo missing)"
 printf 'jq=%s\n' "$(jq --version 2>/dev/null || echo missing)"
+printf 'terraform=%s\n' "$(terraform version 2>/dev/null | sed -n '1s/^Terraform v//p' || echo missing)"
 printf 'watches=%s\n' "$(sysctl -n fs.inotify.max_user_watches 2>/dev/null || echo 0)"
 printf 'course=%s\n' "$(test -f ~/aro-k8s-course/.env && echo yes || echo no)"
 exit 0
@@ -290,6 +324,11 @@ $kubectlVersion = Get-VmValue 'kubectl'
 if ($kubectlVersion.StartsWith("$PinnedKubectlMinor.")) { Add-Pass "kubectl $kubectlVersion is installed." }
 elseif (-not $kubectlVersion -or $kubectlVersion -eq 'missing') { Add-Fail 'kubectl is missing.' 'Read the install log on the VM.' }
 else { Add-Warn "kubectl $kubectlVersion is installed, the course expects $PinnedKubectlMinor.x." 'kubectl works with clusters one minor version older or newer.' }
+# check: tools-terraform
+$terraformVmVersion = Get-VmValue 'terraform'
+if ($terraformVmVersion -eq $PinnedTerraformVersion) { Add-Pass "Terraform $terraformVmVersion is installed." }
+elseif (-not $terraformVmVersion -or $terraformVmVersion -eq 'missing') { Add-Fail 'Terraform is missing on the lab VM.' 'Read the install log on the VM.' }
+else { Add-Warn "Terraform $terraformVmVersion is installed, the course expects $PinnedTerraformVersion." 'Later chapters may behave differently.' }
 # check: tools-other
 foreach ($tool in @('az', 'git', 'jq')) {
     $toolVersion = Get-VmValue $tool

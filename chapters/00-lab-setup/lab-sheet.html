@@ -23,7 +23,7 @@
 <h3 id="acceptance-criteria">Acceptance criteria</h3>
 <p>Checked by the validation script, <code data-ps="validate.ps1">validate.sh</code>:</p>
 <ul>
-<li>The readiness report has no <code>[FAIL]</code>. It covers your subscription, the region, the resource providers, the quotas, the budget and its alerts, the tags, the auto-shutdown, the network rule, the identity of the VM and the tools on the VM.</li>
+<li>The readiness report has no <code>[FAIL]</code>. It covers your subscription, the region, the resource providers, the quotas, Terraform and its state, the budget and its alerts, the tags, the auto-shutdown, the network rule, the identity of the VM and the tools on the VM.</li>
 <li>Warnings are allowed. Each <code>[WARN]</code> comes with a hint that says what it means and when it matters.</li>
 </ul>
 <p>Checked by you:</p>
@@ -110,12 +110,12 @@ chapters/00-lab-setup/lab/teardown.sh stop  # deallocates the VM at the end of t
 </div>
 </div>
 <p>The bash scripts also run in Git Bash on Windows, if you prefer bash there.</p>
-<p>Setup prints the estimated cost, asks for confirmation, registers the resource providers, creates the budget and deploys the Bicep files. It then waits for SSH and for cloud-init, which takes 5 to 10 minutes on the first run, and copies the course files to <code>~/aro-k8s-course</code> on the VM.</p>
+<p>Setup prints the estimated cost, asks for confirmation, registers the resource providers and creates the storage for the Terraform state. A new role can take up to 10 minutes to apply, so setup may wait there on the first run. It then prints the Terraform plan and asks again before it applies it. The first run downloads the azurerm provider, about 85 MB, to the <code>.aro-k8s/terraform</code> folder of your home folder, outside the course folder. Setup then waits for SSH and for cloud-init, which takes 5 to 10 minutes on the first run, and copies the course files to <code>~/aro-k8s-course</code> on the VM.</p>
 <p>Next time you work on the course, start the VM with <code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>. If you edit <code>.env</code> or update the course files on your computer, copy them to the VM again with <code data-ps=".\scripts\lab-vm.ps1 sync">scripts/lab-vm.sh sync</code>. Your own work on the VM, in <code>~/work</code>, is never overwritten.</p>
 <h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
 <ul>
 <li>At the end of every session, deallocate the VM: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 stop">chapters/00-lab-setup/lab/teardown.sh stop</code>. Keep the environment, chapter 1 needs it.</li>
-<li>When you stop following the course for more than a few weeks, destroy everything: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code>. It deletes the resource group and the budget, then lists anything still tagged <code>course=aro-k8s</code>. Azure may also have created a resource group called <code>NetworkWatcherRG</code> when the network was created. It has no cost on its own and you can keep it. <a href="https://learn.microsoft.com/azure/network-watcher/network-watcher-create">Network Watcher</a></li>
+<li>When you stop following the course for more than a few weeks, destroy everything: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code>. It runs <code>terraform destroy</code>, which deletes the resource group and the budget, then deletes the resource group of the Terraform state, and lists anything still tagged <code>course=aro-k8s</code>. If Terraform cannot finish, the script deletes what is left with the Azure CLI. Azure may also have created a resource group called <code>NetworkWatcherRG</code> when the network was created. It has no cost on its own and you can keep it. <a href="https://learn.microsoft.com/azure/network-watcher/network-watcher-create">Network Watcher</a></li>
 <li>A day later, open Cost Management, Cost analysis, and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day. For a one-hour session, expect well under 1 EUR.</li>
 </ul>
 </main>

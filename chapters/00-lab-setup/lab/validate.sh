@@ -157,6 +157,38 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+step "Terraform and its state"
+# check: terraform-cli
+tf_version="$(terraform_version 2>/dev/null || true)"
+if [[ -z "$tf_version" ]]; then
+  check_fail "Terraform is not installed on this computer." "Install it: https://developer.hashicorp.com/terraform/install"
+elif version_at_least "$tf_version" "$TERRAFORM_MIN_VERSION"; then
+  check_pass "Terraform ${tf_version} is installed."
+else
+  check_fail "Terraform ${tf_version} is installed, the course needs ${TERRAFORM_MIN_VERSION} or later." "Install a newer version: https://developer.hashicorp.com/terraform/install"
+fi
+
+# check: tfstate-storage
+state_account="$(state_account_name "$sub_id")"
+state_info="$(az storage account show --resource-group "$(state_rg_name)" --name "$state_account" \
+  --query "[tags.course, tags.chapter, allowSharedKeyAccess]" --output tsv 2>/dev/null || true)"
+if [[ -z "$state_info" ]]; then
+  check_fail "No Terraform state storage account ${state_account} in $(state_rg_name)." "Run chapter 0 setup."
+elif [[ "$(tr '\n' ' ' <<<"$state_info")" == "${COURSE_TAG_VALUE} ${CHAPTER} false " ]]; then
+  check_pass "State storage account ${state_account} has the course tags and refuses account keys."
+else
+  check_warn "State storage account ${state_account} is missing the course tags or accepts account keys." "Run chapter 0 setup again."
+fi
+
+# check: tfstate-blob
+if [[ -n "$state_info" ]] && [[ "$(az storage blob exists --account-name "$state_account" --container-name "$STATE_CONTAINER" \
+  --name 00-lab-setup.tfstate --auth-mode login --query exists --output tsv 2>/dev/null || true)" == "true" ]]; then
+  check_pass "The state of chapter 0 is in ${state_account}/${STATE_CONTAINER}, and your account can read it."
+else
+  check_fail "The state of chapter 0 is missing, or your account cannot read it." "Run chapter 0 setup. A new role can take up to 10 minutes to apply."
+fi
+
+# ---------------------------------------------------------------------------
 step "Budget"
 # check: budget-exists
 # check: budget-amount
@@ -265,10 +297,15 @@ fi
 if [[ -n "$vm_principal" ]]; then
   rg_id="$(az group show --name "$rg" --query id --output tsv)"
   roles="$(az role assignment list --assignee "$vm_principal" --scope "$rg_id" --query "[].roleDefinitionName" --output tsv 2>/dev/null || true)"
-  if grep -qx "Contributor" <<<"$roles" && grep -qx "AcrPush" <<<"$roles"; then
-    check_pass "The VM managed identity has Contributor and AcrPush on ${rg}."
+  state_id="$(az storage account show --resource-group "$(state_rg_name)" --name "$(state_account_name "$sub_id")" --query id --output tsv 2>/dev/null || true)"
+  state_roles=""
+  if [[ -n "$state_id" ]]; then
+    state_roles="$(az role assignment list --assignee "$vm_principal" --scope "$state_id" --query "[].roleDefinitionName" --output tsv 2>/dev/null || true)"
+  fi
+  if grep -qx "Contributor" <<<"$roles" && grep -qx "AcrPush" <<<"$roles" && grep -qx "Storage Blob Data Contributor" <<<"$state_roles"; then
+    check_pass "The VM managed identity has Contributor and AcrPush on ${rg}, and Storage Blob Data Contributor on the state storage."
   else
-    check_fail "The VM managed identity lacks Contributor or AcrPush on ${rg}." "Run chapter 0 setup again. Role assignments can take a few minutes to appear."
+    check_fail "The VM managed identity lacks Contributor or AcrPush on ${rg}, or Storage Blob Data Contributor on the state storage." "Run chapter 0 setup again. Role assignments can take up to 10 minutes to appear."
   fi
 else
   check_fail "The lab VM has no managed identity." "Run chapter 0 setup again."
@@ -297,6 +334,7 @@ printf 'kubectl=%s\n' "$(kubectl version --client -o json 2>/dev/null | jq -r '.
 printf 'az=%s\n' "$(az version --query '"azure-cli"' --output tsv 2>/dev/null || echo missing)"
 printf 'git=%s\n' "$(git --version 2>/dev/null | awk '{print $3}' || echo missing)"
 printf 'jq=%s\n' "$(jq --version 2>/dev/null || echo missing)"
+printf 'terraform=%s\n' "$(terraform version 2>/dev/null | sed -n '1s/^Terraform v//p' || echo missing)"
 printf 'watches=%s\n' "$(sysctl -n fs.inotify.max_user_watches 2>/dev/null || echo 0)"
 printf 'course=%s\n' "$(test -f ~/aro-k8s-course/.env && echo yes || echo no)"
 REMOTE
@@ -340,6 +378,15 @@ elif [[ "$kubectl_version" == "missing" || -z "$kubectl_version" ]]; then
   check_fail "kubectl is missing." "Read the install log on the VM."
 else
   check_warn "kubectl ${kubectl_version} is installed, the course expects ${PINNED_KUBECTL_MINOR}.x." "kubectl works with clusters one minor version older or newer."
+fi
+# check: tools-terraform
+terraform_vm_version="$(vm_value terraform)"
+if [[ "$terraform_vm_version" == "$PINNED_TERRAFORM_VERSION" ]]; then
+  check_pass "Terraform ${terraform_vm_version} is installed."
+elif [[ "$terraform_vm_version" == "missing" || -z "$terraform_vm_version" ]]; then
+  check_fail "Terraform is missing on the lab VM." "Read the install log on the VM."
+else
+  check_warn "Terraform ${terraform_vm_version} is installed, the course expects ${PINNED_TERRAFORM_VERSION}." "Later chapters may behave differently."
 fi
 # check: tools-other
 for tool in az git jq; do

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Chapter 0 setup. Creates or updates the lab resource group, the monthly budget and the lab VM.
+# Chapter 0 setup. Creates the storage for the Terraform state, then creates or updates the lab
+# resource group, the monthly budget and the lab VM with Terraform.
 # Run it on your own computer, from the course folder:
 #   chapters/00-lab-setup/lab/setup.sh [--yes]
 # Safe to run again: it updates what exists and creates what is missing.
@@ -16,6 +17,7 @@ usage() {
 Usage: chapters/00-lab-setup/lab/setup.sh [--yes]
 
 Creates or updates the chapter 0 lab environment in Azure:
+  - resource group <PREFIX>-tfstate-rg with the storage account that holds the Terraform state
   - resource group <PREFIX>-lab-rg
   - monthly budget <PREFIX>-monthly-budget with alerts
   - lab VM <PREFIX>-lab-vm with daily auto-shutdown, reachable over SSH from LEARNER_IP only
@@ -42,6 +44,7 @@ load_env
 require_cmd az "Install the Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
 require_cmd ssh "Install an OpenSSH client."
 require_cmd tar "Install tar (Git Bash on Windows includes it)."
+require_terraform
 require_az_login
 require_expected_subscription
 
@@ -92,7 +95,6 @@ fi
 if ! az vm image show --urn "$VM_IMAGE" --location "$REGION" --output none 2>/dev/null; then
   die "The image ${VM_IMAGE} is not available in ${REGION}. List the options with: az vm image list --publisher Canonical --offer ubuntu-26_04-lts --location ${REGION} --all --output table"
 fi
-IFS=: read -r image_publisher image_offer image_sku image_version <<<"$VM_IMAGE"
 info "OK: ${VM_SIZE} and ${VM_IMAGE} are available in ${REGION}."
 
 # step: cost
@@ -103,6 +105,7 @@ ip_hour="$(price_public_ip_hour)"
 info "Lab VM ${VM_SIZE}: ${vm_hour} per hour, only while it runs."
 info "OS disk ${OS_DISK_GB} GiB Standard SSD: ${disk_month} per month, even while the VM is stopped."
 info "Public IPv4 address: ${ip_hour} per hour, even while the VM is stopped."
+info "Terraform state storage: $(price_blob_gb_month) per GB per month. The state takes a few kilobytes."
 if [[ "$vm_hour" != "n/a" && "$disk_month" != "n/a" && "$ip_hour" != "n/a" ]]; then
   awk -v vm="$vm_hour" -v disk="$disk_month" -v ip="$ip_hour" -v cur="$CURRENCY" 'BEGIN {
     printf "About %.2f %s per month if the VM runs 2 hours a day (60 hours).\n", vm * 60 + disk + ip * 730, cur
@@ -131,57 +134,84 @@ for namespace in Microsoft.Compute Microsoft.Network Microsoft.Storage Microsoft
   fi
 done
 
-# step: budget
-step "Budget"
-budget_url="https://management.azure.com/subscriptions/${sub_id}/providers/Microsoft.Consumption/budgets/$(budget_name)?api-version=2023-05-01"
-existing_amount="$(az rest --method get --url "$budget_url" --query properties.amount --output tsv 2>/dev/null || true)"
-deploy_budget="true"
-if [[ -n "$existing_amount" ]]; then
-  if [[ "${existing_amount%.*}" == "$BUDGET_AMOUNT" ]]; then
-    deploy_budget="false"
-    info "Budget $(budget_name) already exists with ${BUDGET_AMOUNT} ${CURRENCY}. Kept as it is."
-  else
-    info "Budget amount changes from ${existing_amount%.*} to ${BUDGET_AMOUNT}. Replacing the budget."
-    az rest --method delete --url "$budget_url" --output none
-  fi
+# step: state
+step "Storage for the Terraform state"
+state_rg="$(state_rg_name)"
+state_account="$(state_account_name "$sub_id")"
+az group create --tags "${COURSE_TAG_KEY}=${COURSE_TAG_VALUE}" "chapter=${CHAPTER}" --name "$state_rg" --location "$REGION" --output none
+if az storage account show --resource-group "$state_rg" --name "$state_account" --output none 2>/dev/null; then
+  info "Storage account ${state_account} already exists."
+else
+  info "Creating storage account ${state_account} in ${state_rg}. Access needs Microsoft Entra ID, never an account key."
+  az storage account create --tags "${COURSE_TAG_KEY}=${COURSE_TAG_VALUE}" "chapter=${CHAPTER}" \
+    --resource-group "$state_rg" --name "$state_account" --location "$REGION" \
+    --sku Standard_LRS --kind StorageV2 --min-tls-version TLS1_2 --https-only true \
+    --allow-blob-public-access false --allow-shared-key-access false --output none
 fi
+# Blob versioning keeps the earlier versions of the state, so a damaged state can be restored.
+az storage account blob-service-properties update --resource-group "$state_rg" --account-name "$state_account" \
+  --enable-versioning true --output none
+if [[ "$(az storage container-rm exists --resource-group "$state_rg" --storage-account "$state_account" \
+  --name "$STATE_CONTAINER" --query exists --output tsv)" != "true" ]]; then
+  az storage container-rm create --resource-group "$state_rg" --storage-account "$state_account" \
+    --name "$STATE_CONTAINER" --output none
+fi
+account_id="$(az storage account show --resource-group "$state_rg" --name "$state_account" --query id --output tsv)"
+user_id="$(az ad signed-in-user show --query id --output tsv)"
+role_count="$(az role assignment list --assignee "$user_id" --scope "$account_id" \
+  --role "Storage Blob Data Contributor" --query "length(@)" --output tsv)"
+if [[ "$role_count" == "0" ]]; then
+  info "Giving your account the Storage Blob Data Contributor role on ${state_account}."
+  az role assignment create --assignee-object-id "$user_id" --assignee-principal-type User \
+    --role "Storage Blob Data Contributor" --scope "$account_id" --output none
+fi
+info "Waiting until your account can read the state container (a new role can take up to 10 minutes to apply)."
+ready="false"
+for _ in $(seq 1 60); do
+  if az storage blob list --account-name "$state_account" --container-name "$STATE_CONTAINER" \
+    --auth-mode login --num-results 1 --output none 2>/dev/null; then
+    ready="true"
+    break
+  fi
+  sleep 10
+done
+if [[ "$ready" != "true" ]]; then
+  die "Your account still cannot read the state container after 10 minutes. Wait a few minutes and run setup again."
+fi
+info "OK: the state of chapter 0 goes to ${state_account}/${STATE_CONTAINER}/00-lab-setup.tfstate."
+
+# step: plan
+step "Planning the lab environment with Terraform"
 contact_email="${BUDGET_CONTACT_EMAIL:-$(az account show --query user.name --output tsv)}"
 if [[ "$contact_email" != *@* ]]; then
   die "No e-mail address for budget alerts. Set BUDGET_CONTACT_EMAIL in .env."
 fi
-
-# step: deploy
-step "Deploying the lab environment (about 3 minutes)"
 vm_existed="false"
 if az vm show --resource-group "$(rg_name)" --name "$(vm_name)" --output none 2>/dev/null; then
   vm_existed="true"
 fi
-az deployment sub create \
-  --name "${PREFIX}-lab-setup" \
-  --location "$REGION" \
-  --template-file "$(native_path "${SCRIPT_DIR}/infra/main.bicep")" \
-  --parameters \
-  prefix="$PREFIX" \
-  location="$REGION" \
-  chapter="$CHAPTER" \
-  budgetAmount="$BUDGET_AMOUNT" \
-  budgetStartDate="$(date -u +%Y-%m-01)" \
-  deployBudget="$deploy_budget" \
-  budgetContactEmails="[\"${contact_email}\"]" \
-  learnerIp="$LEARNER_IP" \
-  sshPublicKey="$ssh_public_key" \
-  adminUsername="$ADMIN_USERNAME" \
-  vmSize="$VM_SIZE" \
-  imagePublisher="$image_publisher" \
-  imageOffer="$image_offer" \
-  imageSku="$image_sku" \
-  imageVersion="$image_version" \
-  osDiskSizeGB="$OS_DISK_GB" \
-  autoShutdownTime="$AUTO_SHUTDOWN_TIME" \
-  autoShutdownTimeZone="$AUTO_SHUTDOWN_TIMEZONE" \
-  shutdownNotificationEmail="$contact_email" \
-  --only-show-errors --output none
-info "Deployment finished."
+infra_dir="${SCRIPT_DIR}/infra"
+terraform_env "00-lab-setup" "$sub_id"
+export_lab_tf_vars "$state_account" "$contact_email" "$ssh_public_key"
+plan_file="${TF_DATA_DIR}/lab.tfplan"
+if ! terraform_init "$infra_dir" "$state_account" "00-lab-setup.tfstate"; then
+  die "terraform init failed. Read the message above, fix the cause and run setup again."
+fi
+if ! terraform_in "$infra_dir" plan -out="$plan_file"; then
+  die "terraform plan failed. Read the message above, fix the cause and run setup again."
+fi
+
+# step: apply
+if ! confirm "Apply this plan?"; then
+  info "The lab environment is unchanged. The state storage stays for the next run."
+  exit 0
+fi
+step "Applying the plan (about 3 minutes)"
+if ! terraform_in "$infra_dir" apply "$plan_file"; then
+  die "terraform apply failed. Read the message above, fix the cause and run setup again."
+fi
+rm -f "$plan_file"
+info "Terraform finished."
 
 # step: start-vm
 power_state="$(az vm get-instance-view --resource-group "$(rg_name)" --name "$(vm_name)" \

@@ -1,8 +1,8 @@
 #cloud-config
 # Chapter 0: first-boot configuration of the lab VM.
 # Installs the tools that chapters 1 and 2 need. Progress is logged to /var/log/aro-k8s-install.log.
-# Bicep replaces __ADMIN_USER__ with the admin user name before the VM is created.
-# Keep KIND_VERSION and KUBECTL_MINOR in line with scripts/lib.sh.
+# Terraform replaces __ADMIN_USER__ with the admin user name before the VM is created (lab-vm.tf).
+# Keep KIND_VERSION, KUBECTL_MINOR and TERRAFORM_VERSION in line with scripts/lib.sh.
 
 package_update: true
 packages:
@@ -32,6 +32,7 @@ write_files:
       ADMIN_USER="$1"
       KIND_VERSION="v0.33.0"
       KUBECTL_MINOR="v1.37"
+      TERRAFORM_VERSION="1.17.2"
 
       export DEBIAN_FRONTEND=noninteractive
       # shellcheck source=/dev/null
@@ -86,6 +87,16 @@ write_files:
       install -m 0755 /tmp/kind /usr/local/bin/kind
       rm -f /tmp/kind /tmp/kind.sha256sum
 
+      echo "Installing Terraform ${TERRAFORM_VERSION} and checking its checksum"
+      tf_url="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}"
+      tf_zip="terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip"
+      curl -fsSLo "/tmp/${tf_zip}" "${tf_url}/${tf_zip}"
+      curl -fsSLo /tmp/terraform.sha256sums "${tf_url}/terraform_${TERRAFORM_VERSION}_SHA256SUMS"
+      (cd /tmp && grep " ${tf_zip}\$" terraform.sha256sums | sha256sum -c -)
+      unzip -o -q "/tmp/${tf_zip}" terraform -d /usr/local/bin
+      chmod 0755 /usr/local/bin/terraform
+      rm -f "/tmp/${tf_zip}" /tmp/terraform.sha256sums
+
       sysctl --system > /dev/null
       install -d -o "${ADMIN_USER}" -g "${ADMIN_USER}" "/home/${ADMIN_USER}/work"
 
@@ -94,6 +105,7 @@ write_files:
         echo "kind: $(kind version)"
         echo "kubectl: $(kubectl version --client 2>/dev/null | head -n 1)"
         echo "az: $(az version --query '"azure-cli"' --output tsv)"
+        echo "terraform: $(terraform version | head -n 1)"
       } > /etc/aro-k8s/tools-ready
       echo "Lab tools installed"
 

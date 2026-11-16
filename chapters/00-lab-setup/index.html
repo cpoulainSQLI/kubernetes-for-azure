@@ -29,7 +29,7 @@
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
 <li>An Azure subscription where you have the Owner role. Setup creates role assignments, which needs Owner (or User Access Administrator). A Visual Studio subscription with monthly credit fits, with the spending limit left on.</li>
-<li>On your own computer, a terminal, the <a href="https://learn.microsoft.com/cli/azure/install-azure-cli">Azure CLI</a> and an OpenSSH client. Choose your computer with the picker at the top of the page: every command block then shows the right variant. On Windows, the course scripts run in PowerShell, which is part of Windows. On macOS and Linux, they run in bash.</li>
+<li>On your own computer, a terminal, the <a href="https://learn.microsoft.com/cli/azure/install-azure-cli">Azure CLI</a>, <a href="https://developer.hashicorp.com/terraform/install">Terraform</a> 1.17.0 or later, and an OpenSSH client. Choose your computer with the picker at the top of the page: every command block then shows the right variant. On Windows, the course scripts run in PowerShell, which is part of Windows. On macOS and Linux, they run in bash.</li>
 <li>The course files on your computer, downloaded as a zip file and extracted, or cloned with <a href="https://git-scm.com/downloads">Git</a>.</li>
 </ul>
 <p>To install what is missing:</p>
@@ -37,14 +37,25 @@
 <div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
 <pre><code class="language-powershell"># Azure CLI, with the Windows package manager
 winget install --exact --id Microsoft.AzureCLI
+# Terraform: HashiCorp publishes a zip file for Windows. This puts terraform.exe in your
+# user folder and adds that folder to your Path.
+$tfVersion = '1.17.2'
+$tfDir = Join-Path $env:LOCALAPPDATA 'Programs\Terraform'
+Invoke-WebRequest "https://releases.hashicorp.com/terraform/$tfVersion/terraform_${tfVersion}_windows_amd64.zip" -OutFile "$env:TEMP\terraform.zip"
+Expand-Archive "$env:TEMP\terraform.zip" -DestinationPath $tfDir -Force
+[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ";$tfDir", 'User')
 # The OpenSSH client is an optional Windows feature, already added on most computers. This prints its version:
 ssh -V
 </code></pre>
-<p>If <code>ssh</code> is not found, add the OpenSSH Client optional feature as described in <a href="https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse">Get started with OpenSSH for Windows</a>. Open a new PowerShell window after installing the Azure CLI.</p>
+<p>If <code>ssh</code> is not found, add the OpenSSH Client optional feature as described in <a href="https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse">Get started with OpenSSH for Windows</a>. Open a new PowerShell window after installing the Azure CLI and Terraform, then check Terraform with <code>terraform version</code>.</p>
 </div>
 <div class="tab-panel" data-os="macos" data-label="macOS (bash)">
 <pre><code class="language-bash"># Azure CLI, with Homebrew
 brew update &amp;&amp; brew install azure-cli
+# Terraform, from the HashiCorp tap of Homebrew
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+terraform version
 # The OpenSSH client ships with macOS. This prints its version:
 ssh -V
 </code></pre>
@@ -52,6 +63,11 @@ ssh -V
 <div class="tab-panel" data-os="linux" data-label="Linux (bash)">
 <pre><code class="language-bash"># Azure CLI on Ubuntu or Debian. For other distributions, follow the Azure CLI install page.
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+# Terraform on Ubuntu or Debian, from the HashiCorp apt repository. For other distributions, follow the Terraform install page.
+wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?&lt;=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update &amp;&amp; sudo apt install terraform
+terraform version
 # The OpenSSH client is part of most distributions. This prints its version:
 ssh -V
 </code></pre>
@@ -59,7 +75,7 @@ ssh -V
 </div>
 <p>If subscriptions, resource groups or regions are new to you, take the <a href="https://learn.microsoft.com/training/paths/az-900-describe-cloud-concepts/">Azure Fundamentals cloud concepts path</a> on Microsoft Learn first.</p>
 <h3 id="time-needed">Time needed</h3>
-<p>About 85 minutes: 35 minutes of reading, 10 minutes of preparation, 15 minutes of waiting while Azure builds the VM and installs the tools, and 25 minutes for the lab task. The wait is a good moment for the knowledge check.</p>
+<p>About 90 minutes: 35 minutes of reading, 15 minutes of preparation (Terraform included), 15 minutes of waiting while Azure builds the VM and installs the tools, and 25 minutes for the lab task. The wait is a good moment for the knowledge check.</p>
 <h3 id="estimated-cost">Estimated cost</h3>
 <p>Prices from the Azure Retail Prices API, pay-as-you-go, Linux, region Sweden Central, in EUR, looked up on 13 November 2026. Setup looks them up again for your own region and currency before it changes anything.</p>
 <table>
@@ -85,6 +101,11 @@ ssh -V
 <td>Public IPv4 address, Standard, static</td>
 <td>0.0044 per hour</td>
 <td>All the time, even when the VM is stopped</td>
+</tr>
+<tr>
+<td>Storage account for the Terraform state, Standard LRS, hot tier</td>
+<td>0.0165 per GB per month, looked up on 16 November 2026. The state takes a few kilobytes. Read and write operations are charged too, but a run makes only a few of them (price not verified)</td>
+<td>Until you destroy the lab, but close to nothing</td>
 </tr>
 <tr>
 <td>Budget, auto-shutdown schedule, resource group, network</td>
@@ -187,30 +208,41 @@ ssh -V
 <summary>you forget the lab VM running on a Friday evening. Which guardrail stops the cost, and which one tells you about it?</summary>
 <p>Auto-shutdown deallocates the VM at the time set in <code>.env</code>, which stops the compute cost that evening. The budget would only tell you if the total spending crossed a threshold, and with a delay of up to a day. The disk and IP address keep costing a few cents a day until you destroy the lab.</p>
 </details>
-<h3 id="infrastructure-as-code-with-bicep">Infrastructure as code with Bicep</h3>
-<p>Setup creates the lab from <a href="https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview">Bicep</a> files rather than from clicks in the portal. Bicep is a declarative language: the files describe the end state you want (a resource group, a budget, a VM with these settings), and Azure Resource Manager works out what to create or change to reach it. Running the same deployment twice gives the same result, which is why setup is safe to run again, for example after your public IP address changes.</p>
+<h3 id="infrastructure-as-code-with-terraform">Infrastructure as code with Terraform</h3>
+<p>Setup creates the lab from <a href="https://developer.hashicorp.com/terraform/intro">Terraform</a> files rather than from clicks in the portal. Terraform files are declarative: they describe the end state you want (a resource group, a budget, a VM with these settings), and Terraform works out what to create, change or delete to reach it. It talks to Azure through a provider, a plugin for one platform. Here that is the <a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs">azurerm provider</a>.</p>
+<p>Terraform records what it created in a <a href="https://developer.hashicorp.com/terraform/language/state">state</a>, which maps each resource in the files to the real resource in Azure. Each run starts with a <a href="https://developer.hashicorp.com/terraform/cli/commands/plan">plan</a>: Terraform reads the real resources, compares them and the files with the state, and lists the changes it proposes. Setup prints that plan and asks you before it applies it. When nothing differs, the plan is empty and nothing changes, which is why setup is safe to run again, for example after your public IP address changes.</p>
+<p>The state has to outlive your computer, and two runs must never change it at the same time. So setup first creates a storage account in a resource group of its own, <code>&lt;PREFIX&gt;-tfstate-rg</code>, and Terraform keeps the state there, one blob per chapter, with the <a href="https://developer.hashicorp.com/terraform/language/backend/azurerm">azurerm backend</a>. Terraform <a href="https://developer.hashicorp.com/terraform/language/state/locking">locks the state</a> during a run. The account refuses account keys: you and the lab VM reach it with your Microsoft Entra ID identities and the Storage Blob Data Contributor role. <a href="https://learn.microsoft.com/azure/storage/blobs/versioning-overview">Blob versioning</a> keeps the earlier versions of the state, so a damaged state can be restored. The state lives outside the lab resource group, so destroying the lab never deletes the record of what it contained.</p>
 <p>You will meet the same idea, describing the desired state and letting the platform converge, in chapter 2 with Kubernetes.</p>
 <p>The lab environment looks like this:</p>
 <figure class="diagram">
 <img src="../../assets/diagrams/ch00-lab-environment.png" width="880" height="900" alt="The lab environment: your computer reaches the lab VM over SSH from your IP only. In your subscription, a monthly budget, and a resource group with the public IP address, the network security group, the virtual network, the lab VM, its OS disk and the auto-shutdown schedule.">
-<figcaption>What chapter 0 setup creates.</figcaption>
+<figcaption>What chapter 0 setup creates, apart from the storage account for the Terraform state.</figcaption>
 </figure>
-<p>The files are in the <code>lab/infra</code> folder of this chapter: <a href="lab/infra/main.bicep">main.bicep</a> creates the resource group and the budget at subscription level, and <a href="lab/infra/lab.bicep">lab.bicep</a> creates the network, the VM, the auto-shutdown schedule and the role assignments inside the resource group.</p>
+<p>The files are in the <code>lab/infra</code> folder of this chapter:</p>
+<ul>
+<li><a href="lab/infra/versions.tf">versions.tf</a> sets the versions of Terraform and of the azurerm provider, and declares where the state lives.</li>
+<li><a href="lab/infra/variables.tf">variables.tf</a> lists the settings that setup fills in from your <code>.env</code> file.</li>
+<li><a href="lab/infra/main.tf">main.tf</a> creates the resource group and the budget.</li>
+<li><a href="lab/infra/lab-vm.tf">lab-vm.tf</a> creates the network, the VM, the auto-shutdown schedule and the role assignments of the VM.</li>
+<li><a href="lab/infra/outputs.tf">outputs.tf</a> lists the values that Terraform prints at the end, such as the IP address of the VM.</li>
+<li><code>.terraform.lock.hcl</code> records the exact provider version and its checksums, so that every learner gets the same provider.</li>
+</ul>
 <p>On its first boot, the VM runs <a href="https://learn.microsoft.com/azure/virtual-machines/linux/using-cloud-init">cloud-init</a>, a standard tool that configures a Linux machine from a file. The file in <a href="lab/infra/cloud-init.yaml">lab/infra/cloud-init.yaml</a> installs the tools of chapters 1 and 2:</p>
 <ul>
 <li>Docker Engine, a container engine: the program that builds and runs containers (chapter 1 explains what a container is).</li>
 <li>kind, a tool that runs a small Kubernetes cluster inside containers (chapter 2).</li>
 <li>kubectl, the command-line client of Kubernetes (chapter 2).</li>
 <li>The Azure CLI, so that scripts on the VM can work with Azure.</li>
+<li>Terraform, so that the later chapters create their Azure resources from the VM.</li>
 </ul>
 <details class="check-yourself">
 <summary>your public IP address changed and you run setup again. What does the second run do to the VM?</summary>
-<p>It keeps the VM and its disk, and updates what differs from the files, here the source address in the network security group rule. Bicep describes the end state, so resources that already match are left as they are.</p>
+<p>The plan shows one change, the source address in the network security group rule. Terraform updates that rule and leaves the VM and its disk as they are, because they already match the files.</p>
 </details>
 <h3 id="reaching-the-lab-vm-safely">Reaching the lab VM safely</h3>
 <p>You connect with SSH, using a key pair instead of a password. The private key stays on your computer. The public key is copied to the VM when it is created, and password sign-in is turned off. Azure accepts RSA keys of at least 2048 bits and Ed25519 keys. <a href="https://learn.microsoft.com/azure/virtual-machines/linux/mac-create-ssh-keys">SSH keys for Linux VMs</a></p>
 <p>A network security group (NSG) filters traffic to the VM. The course adds one rule: TCP port 22 (SSH) is allowed from your public IP address with the suffix <code>/32</code>, which means that single address and nothing else. All other inbound traffic from the internet is denied by the default rules of every NSG. If your IP address changes, update <code>LEARNER_IP</code> in <code>.env</code> and run setup again. <a href="https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview">Network security groups</a></p>
-<p>The VM also has a managed identity: an identity in Microsoft Entra ID that belongs to the VM itself. Scripts on the VM sign in with <code>az login --identity</code>, so no password or token is ever stored on the VM. The identity has two roles, both limited to the lab resource group: Contributor, so that chapter scripts can create and delete their resources there, and AcrPush, so that you can push container images in chapter 1. Chapter 4 comes back to why limiting the scope of a role matters. <a href="https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview">Managed identities</a></p>
+<p>The VM also has a managed identity: an identity in Microsoft Entra ID that belongs to the VM itself. Scripts on the VM sign in with <code>az login --identity</code>, so no password or token is ever stored on the VM. The identity has three roles. Two are limited to the lab resource group: Contributor, so that chapter scripts can create and delete their resources there, and AcrPush, so that you can push container images in chapter 1. The third, Storage Blob Data Contributor on the state storage account, lets Terraform on the VM keep the state of the later chapters. Chapter 4 comes back to why limiting the scope of a role matters. <a href="https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview">Managed identities</a></p>
 <p>If your network blocks outgoing SSH, <a href="https://learn.microsoft.com/azure/bastion/quickstart-developer">Azure Bastion Developer</a> is a free alternative in many regions, including Sweden Central. It opens a terminal in your browser through the portal, without any public port, but it does not support native SSH clients or file copies, and allows one connection at a time. <a href="https://learn.microsoft.com/azure/bastion/bastion-sku-comparison">Bastion SKU comparison</a></p>
 <details class="check-yourself">
 <summary>why does the NSG rule end in /32, and what happens when you work from another network?</summary>
@@ -305,7 +337,7 @@ ssh -V
 <h3 id="acceptance-criteria">Acceptance criteria</h3>
 <p>Checked by the validation script, <code data-ps="validate.ps1">validate.sh</code>:</p>
 <ul>
-<li>The readiness report has no <code>[FAIL]</code>. It covers your subscription, the region, the resource providers, the quotas, the budget and its alerts, the tags, the auto-shutdown, the network rule, the identity of the VM and the tools on the VM.</li>
+<li>The readiness report has no <code>[FAIL]</code>. It covers your subscription, the region, the resource providers, the quotas, Terraform and its state, the budget and its alerts, the tags, the auto-shutdown, the network rule, the identity of the VM and the tools on the VM.</li>
 <li>Warnings are allowed. Each <code>[WARN]</code> comes with a hint that says what it means and when it matters.</li>
 </ul>
 <p>Checked by you:</p>
@@ -392,27 +424,32 @@ chapters/00-lab-setup/lab/teardown.sh stop  # deallocates the VM at the end of t
 </div>
 </div>
 <p>The bash scripts also run in Git Bash on Windows, if you prefer bash there.</p>
-<p>Setup prints the estimated cost, asks for confirmation, registers the resource providers, creates the budget and deploys the Bicep files. It then waits for SSH and for cloud-init, which takes 5 to 10 minutes on the first run, and copies the course files to <code>~/aro-k8s-course</code> on the VM.</p>
+<p>Setup prints the estimated cost, asks for confirmation, registers the resource providers and creates the storage for the Terraform state. A new role can take up to 10 minutes to apply, so setup may wait there on the first run. It then prints the Terraform plan and asks again before it applies it. The first run downloads the azurerm provider, about 85 MB, to the <code>.aro-k8s/terraform</code> folder of your home folder, outside the course folder. Setup then waits for SSH and for cloud-init, which takes 5 to 10 minutes on the first run, and copies the course files to <code>~/aro-k8s-course</code> on the VM.</p>
 <p>Next time you work on the course, start the VM with <code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>. If you edit <code>.env</code> or update the course files on your computer, copy them to the VM again with <code data-ps=".\scripts\lab-vm.ps1 sync">scripts/lab-vm.sh sync</code>. Your own work on the VM, in <code>~/work</code>, is never overwritten.</p>
 <h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
 <ul>
 <li>At the end of every session, deallocate the VM: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 stop">chapters/00-lab-setup/lab/teardown.sh stop</code>. Keep the environment, chapter 1 needs it.</li>
-<li>When you stop following the course for more than a few weeks, destroy everything: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code>. It deletes the resource group and the budget, then lists anything still tagged <code>course=aro-k8s</code>. Azure may also have created a resource group called <code>NetworkWatcherRG</code> when the network was created. It has no cost on its own and you can keep it. <a href="https://learn.microsoft.com/azure/network-watcher/network-watcher-create">Network Watcher</a></li>
+<li>When you stop following the course for more than a few weeks, destroy everything: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code>. It runs <code>terraform destroy</code>, which deletes the resource group and the budget, then deletes the resource group of the Terraform state, and lists anything still tagged <code>course=aro-k8s</code>. If Terraform cannot finish, the script deletes what is left with the Azure CLI. Azure may also have created a resource group called <code>NetworkWatcherRG</code> when the network was created. It has no cost on its own and you can keep it. <a href="https://learn.microsoft.com/azure/network-watcher/network-watcher-create">Network Watcher</a></li>
 <li>A day later, open Cost Management, Cost analysis, and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day. For a one-hour session, expect well under 1 EUR.</li>
 </ul>
 <h2 id="sources">Sources</h2>
-<p>Prices: <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, queried on 13 November 2026 with filters such as <code>armSkuName eq 'Standard_D2as_v5' and armRegionName eq 'swedencentral'</code>, currency EUR.</p>
+<p>Prices: <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, queried on 13 November 2026 with filters such as <code>armSkuName eq 'Standard_D2as_v5' and armRegionName eq 'swedencentral'</code>, and on 16 November 2026 for the state storage with <code>productName eq 'General Block Blob v2' and meterName eq 'Hot LRS Data Stored'</code>, currency EUR.</p>
 <ul>
 <li><a href="https://learn.microsoft.com/azure/cost-management-billing/manage/spending-limit">Azure spending limit</a></li>
 <li><a href="https://azure.microsoft.com/pricing/member-offers/credit-for-visual-studio-subscribers/">Monthly Azure credit for Visual Studio subscribers</a></li>
 <li><a href="https://learn.microsoft.com/azure/cost-management-billing/costs/understand-cost-mgt-data">Understand Cost Management data</a></li>
 <li><a href="https://learn.microsoft.com/azure/cost-management-billing/costs/tutorial-acm-create-budgets">Create and manage budgets</a></li>
-<li><a href="https://learn.microsoft.com/azure/templates/microsoft.consumption/budgets">Microsoft.Consumption budgets, Bicep reference</a></li>
+<li><a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/consumption_budget_subscription">azurerm_consumption_budget_subscription, azurerm provider</a></li>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/states-billing">States and billing status of Azure VMs</a></li>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/auto-shutdown-vm">Auto-shutdown a virtual machine</a></li>
 <li><a href="https://learn.microsoft.com/azure/cost-management-billing/understand/plan-manage-costs">Plan to manage Azure costs</a></li>
-<li><a href="https://learn.microsoft.com/azure/templates/microsoft.devtestlab/schedules">Microsoft.DevTestLab schedules, Bicep reference</a></li>
-<li><a href="https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview">What is Bicep?</a></li>
+<li><a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/dev_test_global_vm_shutdown_schedule">azurerm_dev_test_global_vm_shutdown_schedule, azurerm provider</a></li>
+<li><a href="https://developer.hashicorp.com/terraform/intro">What is Terraform?</a> and <a href="https://developer.hashicorp.com/terraform/install">Install Terraform</a></li>
+<li><a href="https://developer.hashicorp.com/terraform/language/state">Terraform state</a>, <a href="https://developer.hashicorp.com/terraform/language/state/locking">state locking</a> and <a href="https://developer.hashicorp.com/terraform/cli/commands/plan">terraform plan</a></li>
+<li><a href="https://developer.hashicorp.com/terraform/language/backend/azurerm">The azurerm backend</a> and <a href="https://developer.hashicorp.com/terraform/language/files/dependency-lock">the dependency lock file</a></li>
+<li><a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs">azurerm provider</a> and <a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/managed_service_identity">authenticating with a managed identity</a></li>
+<li><a href="https://learn.microsoft.com/azure/storage/blobs/versioning-overview">Blob versioning</a> and <a href="https://learn.microsoft.com/azure/storage/blobs/authorize-access-azure-active-directory">authorize access to blobs with Microsoft Entra ID</a></li>
+<li><a href="https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/storage">Storage built-in roles</a> and <a href="https://learn.microsoft.com/azure/role-based-access-control/troubleshooting">Azure RBAC troubleshooting</a> (role changes can take up to 10 minutes)</li>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/linux/using-cloud-init">cloud-init support for Linux VMs in Azure</a></li>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/linux/mac-create-ssh-keys">Quick steps: SSH keys for Linux VMs</a></li>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/linux/create-ssh-keys-detailed">Detailed steps: SSH keys for Linux VMs</a></li>

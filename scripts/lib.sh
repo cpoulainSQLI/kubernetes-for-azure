@@ -20,6 +20,14 @@ VM_COURSE_DIR="aro-k8s-course"
 PINNED_KIND_VERSION="v0.33.0"
 PINNED_KUBECTL_MINOR="v1.37"
 
+# Terraform. The lab VM gets PINNED_TERRAFORM_VERSION from cloud-init. On your own computer, any
+# version from TERRAFORM_MIN_VERSION up works. Keep TERRAFORM_MIN_VERSION in line with the
+# required_version of every versions.tf file.
+TERRAFORM_MIN_VERSION="1.17.0"
+PINNED_TERRAFORM_VERSION="1.17.2"
+# Blob container that holds the Terraform state of every chapter, one blob per chapter.
+STATE_CONTAINER="tfstate"
+
 # Git Bash on Windows rewrites arguments that start with a slash, such as
 # Azure resource IDs. This turns that rewriting off for every az call.
 # The Azure CLI for Windows also ends its output lines with a carriage return,
@@ -222,6 +230,20 @@ load_env() {
 rg_name() { printf '%s-lab-rg' "$PREFIX"; }
 vm_name() { printf '%s-lab-vm' "$PREFIX"; }
 budget_name() { printf '%s-monthly-budget' "$PREFIX"; }
+state_rg_name() { printf '%s-tfstate-rg' "$PREFIX"; }
+
+# Prints the name of the storage account that holds the Terraform state, from the subscription ID.
+# Account names are unique across Azure, so the name ends with 8 characters of a SHA-256 hash of
+# the subscription ID. Every computer and the lab VM work out the same name. lib.ps1 does the same.
+state_account_name() {
+  local hash
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sha256sum | cut -c1-8)"
+  else
+    hash="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | shasum -a 256 | cut -c1-8)"
+  fi
+  printf '%stf%s' "$PREFIX" "$hash"
+}
 
 # Prints the tag arguments for az commands, for example: course=aro-k8s chapter=01
 course_tags() {
@@ -349,9 +371,98 @@ price_public_ip_hour() {
     "Items[?type=='Consumption'].retailPrice | [0]"
 }
 
+price_blob_gb_month() {
+  retail_price "armRegionName eq '${REGION}' and productName eq 'General Block Blob v2' and meterName eq 'Hot LRS Data Stored'" \
+    "Items[?type=='Consumption' && tierMinimumUnits==\`0\`].retailPrice | [0]"
+}
+
 price_acr_basic_day() {
   retail_price "armRegionName eq '${REGION}' and serviceName eq 'Container Registry' and meterName eq 'Basic Registry Unit'" \
     "Items[?type=='Consumption'].retailPrice | [0]"
+}
+
+# ---------------------------------------------------------------------------
+# Terraform
+# ---------------------------------------------------------------------------
+
+# Prints the version of the installed terraform, for example 1.17.2, or nothing.
+terraform_version() {
+  terraform version 2>/dev/null | sed -n '1s/^Terraform v\([0-9][0-9.]*\).*/\1/p'
+}
+
+# version_at_least HAVE NEED returns 0 when version HAVE is NEED or later. Works with bash 3.2.
+version_at_least() {
+  local IFS=. i
+  local -a have need
+  read -r -a have <<<"$1"
+  read -r -a need <<<"$2"
+  for i in 0 1 2; do
+    if ((${have[i]:-0} > ${need[i]:-0})); then
+      return 0
+    fi
+    if ((${have[i]:-0} < ${need[i]:-0})); then
+      return 1
+    fi
+  done
+  return 0
+}
+
+require_terraform() {
+  require_cmd terraform "Install Terraform ${TERRAFORM_MIN_VERSION} or later: https://developer.hashicorp.com/terraform/install"
+  local version
+  version="$(terraform_version)"
+  if ! version_at_least "$version" "$TERRAFORM_MIN_VERSION"; then
+    die "Terraform ${version:-of unknown version} is installed. The course needs ${TERRAFORM_MIN_VERSION} or later."
+  fi
+}
+
+# terraform_env CHAPTER_FOLDER SUBSCRIPTION_ID prepares a Terraform run for one chapter.
+# Terraform keeps its working files (the provider, the plan) in ~/.aro-k8s/terraform/CHAPTER_FOLDER,
+# outside the course folder, so they are never copied to the lab VM or committed.
+terraform_env() {
+  local dir="${HOME}/.aro-k8s/terraform/$1"
+  mkdir -p "$dir"
+  TF_DATA_DIR="$(native_path "$dir")"
+  ARM_SUBSCRIPTION_ID="$2"
+  export TF_DATA_DIR ARM_SUBSCRIPTION_ID TF_IN_AUTOMATION=1 TF_INPUT=0
+}
+
+# export_lab_tf_vars STATE_ACCOUNT ALERT_EMAIL SSH_PUBLIC_KEY passes the settings of .env to the
+# chapter 0 configuration as TF_VAR_ environment variables. Setup and teardown both need them.
+export_lab_tf_vars() {
+  local start_date state_rg
+  start_date="$(date -u +%Y-%m-01)"
+  state_rg="$(state_rg_name)"
+  export TF_VAR_prefix="$PREFIX" TF_VAR_location="$REGION" TF_VAR_chapter="00"
+  export TF_VAR_budget_amount="$BUDGET_AMOUNT" TF_VAR_budget_start_date="$start_date"
+  export TF_VAR_alert_email="$2" TF_VAR_learner_ip="$LEARNER_IP" TF_VAR_ssh_public_key="$3"
+  export TF_VAR_admin_username="$ADMIN_USERNAME" TF_VAR_vm_size="$VM_SIZE" TF_VAR_vm_image="$VM_IMAGE"
+  export TF_VAR_os_disk_size_gb="$OS_DISK_GB" TF_VAR_auto_shutdown_time="$AUTO_SHUTDOWN_TIME"
+  export TF_VAR_auto_shutdown_timezone="$AUTO_SHUTDOWN_TIMEZONE"
+  export TF_VAR_state_resource_group_name="$state_rg" TF_VAR_state_storage_account_name="$1"
+}
+
+# terraform_in DIR ARGS... runs terraform on the configuration in folder DIR.
+terraform_in() {
+  local dir="$1"
+  shift
+  terraform -chdir="$(native_path "$dir")" "$@"
+}
+
+# terraform_init DIR ACCOUNT KEY connects the configuration in DIR to its state: the blob KEY in the
+# state container of storage account ACCOUNT, reached with Microsoft Entra ID. On your own computer
+# Terraform signs in through the Azure CLI, on the lab VM with the VM's managed identity.
+terraform_init() {
+  local dir="$1" account="$2" key="$3" auth="use_cli=true"
+  if on_lab_vm; then
+    auth="use_msi=true"
+  fi
+  terraform_in "$dir" init -reconfigure \
+    -backend-config="storage_account_name=${account}" \
+    -backend-config="container_name=${STATE_CONTAINER}" \
+    -backend-config="key=${key}" \
+    -backend-config="use_azuread_auth=true" \
+    -backend-config="$auth"
 }
 
 # ---------------------------------------------------------------------------
@@ -405,7 +516,7 @@ lab_ssh() {
 # Copies the course files (not your work in ~/work) to ~/aro-k8s-course on the lab VM.
 sync_course_to_vm() {
   info "Copying the course files to ~/${VM_COURSE_DIR} on the lab VM."
-  tar -C "$COURSE_ROOT" --exclude=.git -czf - . |
+  tar -C "$COURSE_ROOT" --exclude=.git --exclude=.terraform -czf - . |
     lab_ssh "mkdir -p ~/${VM_COURSE_DIR} && tar -xzf - -C ~/${VM_COURSE_DIR} && find ~/${VM_COURSE_DIR} -name '*.sh' -exec chmod +x {} +"
 }
 

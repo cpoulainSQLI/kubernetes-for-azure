@@ -15,6 +15,12 @@ $KnownHostsOption = 'UserKnownHostsFile=~/.ssh/aro-k8s_known_hosts'
 # Tool versions installed by chapter 0 cloud-init. Keep them in line with scripts/lib.sh.
 $PinnedKindVersion = 'v0.33.0'
 $PinnedKubectlMinor = 'v1.37'
+# Terraform. The lab VM gets $PinnedTerraformVersion from cloud-init. On your own computer, any
+# version from $TerraformMinVersion up works. Keep both in line with scripts/lib.sh.
+$TerraformMinVersion = '1.17.0'
+$PinnedTerraformVersion = '1.17.2'
+# Blob container that holds the Terraform state of every chapter, one blob per chapter.
+$StateContainer = 'tfstate'
 
 $script:PassCount = 0
 $script:FailCount = 0
@@ -215,6 +221,18 @@ function Read-CourseSetting {
 function Get-RgName { return "$($script:Config.PREFIX)-lab-rg" }
 function Get-VmName { return "$($script:Config.PREFIX)-lab-vm" }
 function Get-BudgetName { return "$($script:Config.PREFIX)-monthly-budget" }
+function Get-StateRgName { return "$($script:Config.PREFIX)-tfstate-rg" }
+
+# Name of the storage account that holds the Terraform state, from the subscription ID.
+# Account names are unique across Azure, so the name ends with 8 characters of a SHA-256 hash of
+# the subscription ID. state_account_name in lib.sh must give the same name.
+function Get-StateAccountName([string]$SubscriptionId) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($SubscriptionId.ToLowerInvariant())) }
+    finally { $sha.Dispose() }
+    $hash = -join ($bytes[0..3] | ForEach-Object { $_.ToString('x2') })
+    return "$($script:Config.PREFIX)tf$hash"
+}
 
 function Get-OsDiskTier {
     switch ($script:Config.OS_DISK_GB) {
@@ -266,6 +284,81 @@ function Get-PriceDiskMonth {
 
 function Get-PricePublicIpHour {
     return Get-RetailPrice "armRegionName eq '$($script:Config.REGION)' and productName eq 'IP Addresses' and meterName eq 'Standard IPv4 Static Public IP'"
+}
+
+function Get-PriceBlobGbMonth {
+    return Get-RetailPrice "armRegionName eq '$($script:Config.REGION)' and productName eq 'General Block Blob v2' and meterName eq 'Hot LRS Data Stored'"
+}
+
+# ---------------------------------------------------------------------------
+# Terraform
+# ---------------------------------------------------------------------------
+
+# Version of the installed terraform, for example 1.17.2, or an empty string.
+function Get-TerraformVersion {
+    $result = Invoke-Native -FilePath 'terraform' -Arguments @('version')
+    if ($result.ExitCode -ne 0 -or $result.Output -notmatch '^Terraform v([0-9]+\.[0-9]+\.[0-9]+)') { return '' }
+    return $Matches[1]
+}
+
+function Assert-Terraform {
+    Assert-Command 'terraform' "Install Terraform $TerraformMinVersion or later: https://developer.hashicorp.com/terraform/install"
+    $version = Get-TerraformVersion
+    if (-not $version -or [version]$version -lt [version]$TerraformMinVersion) {
+        Exit-WithError "Terraform $version is installed. The course needs $TerraformMinVersion or later."
+    }
+}
+
+# Prepares a Terraform run for one chapter. Terraform keeps its working files (the provider, the plan)
+# in ~/.aro-k8s/terraform/<chapter folder>, outside the course folder, so they are never copied to the lab VM or committed.
+function Initialize-TerraformEnvironment([string]$ChapterFolder, [string]$SubscriptionId) {
+    $dir = Join-Path (Join-Path (Join-Path $HOME '.aro-k8s') 'terraform') $ChapterFolder
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $env:TF_DATA_DIR = $dir
+    $env:ARM_SUBSCRIPTION_ID = $SubscriptionId
+    $env:TF_IN_AUTOMATION = '1'
+    $env:TF_INPUT = '0'
+}
+
+# Passes the settings of .env to the chapter 0 configuration as TF_VAR_ environment variables.
+# Setup and teardown both need them.
+function Export-LabTerraformVariable([string]$StateAccount, [string]$AlertEmail, [string]$SshPublicKey) {
+    $values = [ordered]@{
+        prefix = $script:Config.PREFIX; location = $script:Config.REGION; chapter = '00'
+        budget_amount = $script:Config.BUDGET_AMOUNT
+        budget_start_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-01', $Invariant)
+        alert_email = $AlertEmail; learner_ip = $script:Config.LEARNER_IP; ssh_public_key = $SshPublicKey
+        admin_username = $script:Config.ADMIN_USERNAME; vm_size = $script:Config.VM_SIZE; vm_image = $script:Config.VM_IMAGE
+        os_disk_size_gb = $script:Config.OS_DISK_GB; auto_shutdown_time = $script:Config.AUTO_SHUTDOWN_TIME
+        auto_shutdown_timezone = $script:Config.AUTO_SHUTDOWN_TIMEZONE
+        state_resource_group_name = (Get-StateRgName); state_storage_account_name = $StateAccount
+    }
+    foreach ($name in $values.Keys) { Set-Item -LiteralPath "Env:TF_VAR_$name" -Value "$($values[$name])" }
+}
+
+# Removes the variables set for Terraform from this PowerShell session.
+function Clear-TerraformEnvironment {
+    Get-ChildItem Env: | Where-Object { $_.Name -like 'TF_VAR_*' } | ForEach-Object { Remove-Item -LiteralPath "Env:$($_.Name)" }
+    foreach ($name in @('TF_DATA_DIR', 'ARM_SUBSCRIPTION_ID', 'TF_IN_AUTOMATION', 'TF_INPUT')) {
+        Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+    }
+}
+
+# Runs terraform on the configuration in a folder and returns its exit code.
+function Invoke-Terraform([string]$Dir, [string[]]$Arguments) {
+    & terraform @(@("-chdir=$Dir") + $Arguments) | Out-Host
+    return $LASTEXITCODE
+}
+
+# Arguments of terraform init that connect a configuration to its state: the blob $Key in the
+# state container of storage account $Account, reached with Microsoft Entra ID through the Azure CLI.
+function Get-TerraformInitArgument([string]$Account, [string]$Key) {
+    return @('init', '-reconfigure',
+        "-backend-config=storage_account_name=$Account",
+        "-backend-config=container_name=$StateContainer",
+        "-backend-config=key=$Key",
+        '-backend-config=use_azuread_auth=true',
+        '-backend-config=use_cli=true')
 }
 
 # ---------------------------------------------------------------------------
@@ -339,7 +432,7 @@ function Sync-CourseToVm {
     Write-Info "Copying the course files to ~/$VmCourseDir on the lab VM."
     $archive = Join-Path ([System.IO.Path]::GetTempPath()) ("aro-k8s-course-{0}.tar.gz" -f [guid]::NewGuid().ToString('N'))
     try {
-        & tar -czf $archive --exclude .git -C $CourseRoot .
+        & tar -czf $archive --exclude .git --exclude .terraform -C $CourseRoot .
         if ($LASTEXITCODE -ne 0) { Exit-WithError 'Could not pack the course files with tar.' }
         $scpArgs = @('-i', (Get-SshKeyFile), '-o', 'StrictHostKeyChecking=accept-new', '-o', $KnownHostsOption, '-o', 'ConnectTimeout=10', $archive, "$($script:Config.ADMIN_USERNAME)@${ip}:aro-k8s-course.tar.gz")
         & scp @scpArgs

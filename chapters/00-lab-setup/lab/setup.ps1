@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-Chapter 0 setup. Creates or updates the lab resource group, the monthly budget and the lab VM.
+Chapter 0 setup. Creates the storage for the Terraform state, then creates or updates the lab
+resource group, the monthly budget and the lab VM with Terraform.
 
 .DESCRIPTION
 Run it on your own computer, from the course folder:
@@ -25,6 +26,7 @@ Assert-Command 'az' 'Install the Azure CLI: https://learn.microsoft.com/cli/azur
 Assert-Command 'ssh' 'Install the OpenSSH client.'
 Assert-Command 'scp' 'Install the OpenSSH client.'
 Assert-Command 'tar' 'Windows 10 and 11 include tar. On other systems, install it.'
+Assert-Terraform
 Assert-AzSignedIn
 Assert-ExpectedSubscription
 
@@ -79,6 +81,7 @@ $ipHour = Get-PricePublicIpHour
 Write-Info "Lab VM $($Config.VM_SIZE): $vmHour per hour, only while it runs."
 Write-Info "OS disk $($Config.OS_DISK_GB) GiB Standard SSD: $diskMonth per month, even while the VM is stopped."
 Write-Info "Public IPv4 address: $ipHour per hour, even while the VM is stopped."
+Write-Info "Terraform state storage: $(Get-PriceBlobGbMonth) per GB per month. The state takes a few kilobytes."
 if ($vmHour -ne 'n/a' -and $diskMonth -ne 'n/a' -and $ipHour -ne 'n/a') {
     $vm = [double]::Parse($vmHour, $Invariant)
     $disk = [double]::Parse($diskMonth, $Invariant)
@@ -110,66 +113,77 @@ foreach ($namespace in $namespaces) {
     }
 }
 
-# step: budget
-Write-Step 'Budget'
-$budgetUrl = Get-BudgetUrl $subId
-$existingBudget = Get-AzJson @('rest', '--method', 'get', '--url', $budgetUrl)
-$deployBudget = $true
-if ($existingBudget) {
-    $existingAmount = [int][double](Get-Prop $existingBudget 'properties.amount')
-    if ($existingAmount -eq [int]$Config.BUDGET_AMOUNT) {
-        $deployBudget = $false
-        Write-Info "Budget $(Get-BudgetName) already exists with $($Config.BUDGET_AMOUNT) $($Config.CURRENCY). Kept as it is."
-    }
-    else {
-        Write-Info "Budget amount changes from $existingAmount to $($Config.BUDGET_AMOUNT). Replacing the budget."
-        Invoke-AzChange @('rest', '--method', 'delete', '--url', $budgetUrl) 'Deleting the old budget'
-    }
+# step: state
+Write-Step 'Storage for the Terraform state'
+$stateRg = Get-StateRgName
+$stateAccount = Get-StateAccountName $subId
+Invoke-AzChange @('group', 'create', '--tags', "$CourseTagKey=$CourseTagValue", "chapter=$Chapter", '--name', $stateRg, '--location', $Config.REGION) 'Creating the state resource group'
+if ((Invoke-Native -FilePath 'az' -Arguments @('storage', 'account', 'show', '--resource-group', $stateRg, '--name', $stateAccount, '--output', 'none')).ExitCode -eq 0) {
+    Write-Info "Storage account $stateAccount already exists."
 }
+else {
+    Write-Info "Creating storage account $stateAccount in $stateRg. Access needs Microsoft Entra ID, never an account key."
+    Invoke-AzChange @('storage', 'account', 'create', '--tags', "$CourseTagKey=$CourseTagValue", "chapter=$Chapter",
+        '--resource-group', $stateRg, '--name', $stateAccount, '--location', $Config.REGION,
+        '--sku', 'Standard_LRS', '--kind', 'StorageV2', '--min-tls-version', 'TLS1_2', '--https-only', 'true',
+        '--allow-blob-public-access', 'false', '--allow-shared-key-access', 'false') 'Creating the state storage account'
+}
+# Blob versioning keeps the earlier versions of the state, so a damaged state can be restored.
+Invoke-AzChange @('storage', 'account', 'blob-service-properties', 'update', '--resource-group', $stateRg, '--account-name', $stateAccount,
+    '--enable-versioning', 'true') 'Turning on blob versioning'
+$containerExists = Get-AzValue @('storage', 'container-rm', 'exists', '--resource-group', $stateRg, '--storage-account', $stateAccount, '--name', $StateContainer, '--query', 'exists')
+if ($containerExists -ne 'true') {
+    Invoke-AzChange @('storage', 'container-rm', 'create', '--resource-group', $stateRg, '--storage-account', $stateAccount, '--name', $StateContainer) 'Creating the state container'
+}
+$accountId = Get-AzValue @('storage', 'account', 'show', '--resource-group', $stateRg, '--name', $stateAccount, '--query', 'id')
+$userId = Get-AzValue @('ad', 'signed-in-user', 'show', '--query', 'id')
+$roleCount = Get-AzValue @('role', 'assignment', 'list', '--assignee', $userId, '--scope', $accountId, '--role', 'Storage Blob Data Contributor', '--query', 'length(@)')
+if ($roleCount -eq '0') {
+    Write-Info "Giving your account the Storage Blob Data Contributor role on $stateAccount."
+    Invoke-AzChange @('role', 'assignment', 'create', '--assignee-object-id', $userId, '--assignee-principal-type', 'User',
+        '--role', 'Storage Blob Data Contributor', '--scope', $accountId) 'Giving your account access to the state'
+}
+Write-Info 'Waiting until your account can read the state container (a new role can take up to 10 minutes to apply).'
+$ready = $false
+for ($attempt = 1; $attempt -le 60; $attempt++) {
+    $probe = Invoke-Native -FilePath 'az' -Arguments @('storage', 'blob', 'list', '--account-name', $stateAccount, '--container-name', $StateContainer,
+        '--auth-mode', 'login', '--num-results', '1', '--output', 'none')
+    if ($probe.ExitCode -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 10
+}
+if (-not $ready) { Exit-WithError 'Your account still cannot read the state container after 10 minutes. Wait a few minutes and run setup again.' }
+Write-Info "OK: the state of chapter 0 goes to $stateAccount/$StateContainer/00-lab-setup.tfstate."
+
+# step: plan
+Write-Step 'Planning the lab environment with Terraform'
 $contactEmail = $Config.BUDGET_CONTACT_EMAIL
 if (-not $contactEmail) { $contactEmail = Get-Prop $account 'user.name' }
 if ("$contactEmail" -notmatch '@') { Exit-WithError 'No e-mail address for budget alerts. Set BUDGET_CONTACT_EMAIL in .env.' }
-
-# step: deploy
-Write-Step 'Deploying the lab environment (about 3 minutes)'
 $vmExisted = (Invoke-Native -FilePath 'az' -Arguments @('vm', 'show', '--resource-group', (Get-RgName), '--name', (Get-VmName), '--output', 'none')).ExitCode -eq 0
-# Parameters go through a file: Windows PowerShell 5.1 drops the quotes of JSON values on a command line.
-$parameters = [ordered]@{
-    prefix                    = @{ value = $Config.PREFIX }
-    location                  = @{ value = $Config.REGION }
-    chapter                   = @{ value = $Chapter }
-    budgetAmount              = @{ value = [int]$Config.BUDGET_AMOUNT }
-    budgetStartDate           = @{ value = (Get-Date).ToUniversalTime().ToString('yyyy-MM-01', $Invariant) }
-    deployBudget              = @{ value = $deployBudget }
-    budgetContactEmails       = @{ value = @($contactEmail) }
-    learnerIp                 = @{ value = $Config.LEARNER_IP }
-    sshPublicKey              = @{ value = $sshPublicKey }
-    adminUsername             = @{ value = $Config.ADMIN_USERNAME }
-    vmSize                    = @{ value = $Config.VM_SIZE }
-    imagePublisher            = @{ value = $imageParts[0] }
-    imageOffer                = @{ value = $imageParts[1] }
-    imageSku                  = @{ value = $imageParts[2] }
-    imageVersion              = @{ value = $imageParts[3] }
-    osDiskSizeGB              = @{ value = [int]$Config.OS_DISK_GB }
-    autoShutdownTime          = @{ value = $Config.AUTO_SHUTDOWN_TIME }
-    autoShutdownTimeZone      = @{ value = $Config.AUTO_SHUTDOWN_TIMEZONE }
-    shutdownNotificationEmail = @{ value = $contactEmail }
+$infraDir = Join-Path $PSScriptRoot 'infra'
+Initialize-TerraformEnvironment '00-lab-setup' $subId
+# Values go through TF_VAR_ environment variables, never through JSON on a command line.
+Export-LabTerraformVariable $stateAccount $contactEmail $sshPublicKey
+$planFile = Join-Path $env:TF_DATA_DIR 'lab.tfplan'
+if ((Invoke-Terraform $infraDir (Get-TerraformInitArgument $stateAccount '00-lab-setup.tfstate')) -ne 0) {
+    Exit-WithError 'terraform init failed. Read the message above, fix the cause and run setup again.'
 }
-$parameterFile = Join-Path ([System.IO.Path]::GetTempPath()) ("aro-k8s-setup-{0}.json" -f [guid]::NewGuid().ToString('N'))
-try {
-    $document = [ordered]@{
-        '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#'
-        contentVersion = '1.0.0.0'
-        parameters     = $parameters
-    }
-    [System.IO.File]::WriteAllText($parameterFile, ($document | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding $false))
-    Invoke-AzChange @('deployment', 'sub', 'create', '--name', "$($Config.PREFIX)-lab-setup", '--location', $Config.REGION,
-        '--template-file', (Join-Path $PSScriptRoot 'infra/main.bicep'), '--parameters', "@$parameterFile") 'The deployment'
+if ((Invoke-Terraform $infraDir @('plan', "-out=$planFile")) -ne 0) {
+    Exit-WithError 'terraform plan failed. Read the message above, fix the cause and run setup again.'
 }
-finally {
-    Remove-Item -LiteralPath $parameterFile -Force -ErrorAction SilentlyContinue
+
+# step: apply
+if (-not (Confirm-Action 'Apply this plan?' $Yes)) {
+    Clear-TerraformEnvironment
+    Write-Info 'The lab environment is unchanged. The state storage stays for the next run.'
+    exit 0
 }
-Write-Info 'Deployment finished.'
+Write-Step 'Applying the plan (about 3 minutes)'
+$applyCode = Invoke-Terraform $infraDir @('apply', $planFile)
+Remove-Item -LiteralPath $planFile -Force -ErrorAction SilentlyContinue
+Clear-TerraformEnvironment
+if ($applyCode -ne 0) { Exit-WithError 'terraform apply failed. Read the message above, fix the cause and run setup again.' }
+Write-Info 'Terraform finished.'
 
 # step: start-vm
 $powerState = Get-PowerState

@@ -54,7 +54,7 @@
 <table>
 <thead><tr><th>Part of the course</th><th>What costs money</th><th>Estimate</th></tr></thead>
 <tbody>
-<tr><td>Chapters 0 to 2</td><td>The lab VM while it runs, its disk and its IP address while they exist, and a container registry for one day</td><td>About 1.50 EUR over three days if you destroy the lab VM afterwards. About 13 EUR a month if you keep it and use it 2 hours a day</td></tr>
+<tr><td>Chapters 0 to 2</td><td>The lab VM while it runs, its disk and its IP address while they exist, a container registry for one day, and a few kilobytes of Terraform state in a storage account</td><td>About 1.50 EUR over three days if you destroy the lab VM afterwards. About 13 EUR a month if you keep it and use it 2 hours a day</td></tr>
 <tr><td>Chapters 3 to 7</td><td>Not written yet. Each chapter will state its cost before its lab</td><td>Not priced yet</td></tr>
 <tr><td>Chapters 8 and 9, ARO</td><td>A cluster of six VMs, with their disks and the OpenShift licence of the workers, for as long as it exists. That includes the 45 minutes it takes to create</td><td>Roughly 2.5 to 3 EUR per hour, so 8 to 9 EUR for a three-hour session. This is an estimate from the price list, not yet measured</td></tr>
 </tbody>
@@ -94,7 +94,7 @@
 <tbody>
 <tr><td><code>index.html</code>, <code>about.html</code>, <code>resources.html</code>, <code>azure-limits.html</code></td><td>This site: home, goal and learner profile, primary sources, Azure limits</td></tr>
 <tr><td><code>chapters/NN-name/index.html</code></td><td>One page per chapter, with its knowledge check and its lab. <code>lab-sheet.html</code> next to it is the lab alone</td></tr>
-<tr><td><code>chapters/NN-name/lab/</code></td><td>The lab scripts of the chapter, and its Bicep or YAML files</td></tr>
+<tr><td><code>chapters/NN-name/lab/</code></td><td>The lab scripts of the chapter, and its Terraform or YAML files</td></tr>
 <tr><td><code>scripts/</code></td><td>Shared helpers for bash and PowerShell, the lab VM helper, the course checks</td></tr>
 <tr><td><code>sample-app/</code></td><td>The small web application used in every chapter</td></tr>
 <tr><td><code>solutions/</code></td><td>Reference solutions, by chapter</td></tr>

@@ -80,7 +80,7 @@
 <li>Imperative commands say what to do now: <code>kubectl create deployment</code>, <code>kubectl scale</code>, <code>kubectl delete</code>. They are quick, but leave no record of the intended state.</li>
 <li>Declarative configuration says what should exist: you write YAML files that describe objects, and <code>kubectl apply -f &lt;file or folder&gt;</code> makes the cluster match them. Running it again changes nothing if nothing changed. The files can live in Git, be reviewed and be applied again on another cluster.</li>
 </ul>
-<p>This course works declaratively, the same way the Bicep files of chapter 0 describe Azure resources.</p>
+<p>This course works declaratively, the same way the Terraform files of chapter 0 describe Azure resources.</p>
 <p><code>kubectl diff -f &lt;file or folder&gt;</code> compares your files with the cluster and prints what <code>kubectl apply</code> would change, without changing anything. When it prints nothing, the files describe exactly what runs. <a href="https://kubernetes.io/docs/reference/kubectl/generated/kubectl_diff/">kubectl diff</a></p>
 <p>Every Kubernetes object in YAML has the same four top-level fields:</p>
 <table>
