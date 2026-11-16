@@ -49,8 +49,19 @@
 <p>From chapter 1 onwards, each task has two hints that you open when you need them, and a broken lab follows the lab: a script puts one fault into your finished work, and you find and repair it. Each chapter also has a lab sheet, which is the lab alone on one page.</p>
 <p>Reference solutions are in <a href="solutions/index.html">Reference solutions</a>. Look at them after you have tried, not before.</p>
 
-<h2 id="cost-policy">Cost policy</h2>
-<p>The course is designed for a subscription with a monthly credit of about 130 EUR and the spending limit on. With the spending limit on, Azure disables the subscription for the rest of the billing period when the credit runs out, and stops its virtual machines. The guardrails below exist so that this never happens to you by accident.</p>
+<h2 id="cost-policy">Cost: know it before you start</h2>
+<p>Everything in this course runs on Azure resources that you pay for, from a credit or from your card. Read this section before chapter 0. The amounts are for Sweden Central in November 2026, from the public price list. Each setup script looks the prices up again for your region and currency, and prints them before it creates anything.</p>
+<table>
+<thead><tr><th>Part of the course</th><th>What costs money</th><th>Estimate</th></tr></thead>
+<tbody>
+<tr><td>Chapters 0 to 2</td><td>The lab VM while it runs, its disk and its IP address while they exist, and a container registry for one day</td><td>About 1.50 EUR over three days if you destroy the lab VM afterwards. About 13 EUR a month if you keep it and use it 2 hours a day</td></tr>
+<tr><td>Chapters 3 to 7</td><td>Not written yet. Each chapter will state its cost before its lab</td><td>Not priced yet</td></tr>
+<tr><td>Chapters 8 and 9, ARO</td><td>A cluster of six VMs, with their disks and the OpenShift licence of the workers, for as long as it exists. That includes the 45 minutes it takes to create</td><td>Roughly 2.5 to 3 EUR per hour, so 8 to 9 EUR for a three-hour session. This is an estimate from the price list, not yet measured</td></tr>
+</tbody>
+</table>
+<p>ARO is by far the most expensive part. It also needs a quota of 44 vCPUs, which many subscriptions do not have by default. Check both early: the readiness report of chapter 0 tells you where you stand, and <a href="azure-limits.html">Quotas, regions and resource providers</a> explains what to ask for. <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, <a href="https://learn.microsoft.com/azure/openshift/openshift-service-definitions">how ARO is billed</a>, <a href="https://learn.microsoft.com/azure/openshift/create-cluster">create an ARO cluster</a></p>
+<h3 id="what-the-course-does-for-you">What the course does for you</h3>
+<p>The course is designed for a subscription with a monthly credit of about 130 EUR and the spending limit on. With the spending limit on, Azure disables the subscription for the rest of the billing period when the credit runs out, and stops its virtual machines. These guardrails exist so that this never happens to you by accident.</p>
 <ul>
 <li>The spending limit stays on.</li>
 <li>Chapter 0 creates a monthly budget with alerts at 50%, 80% and 100% of actual cost, and at 100% of forecast cost.</li>
@@ -59,7 +70,15 @@
 <li>Nothing runs overnight unless a chapter says so.</li>
 <li>ARO only appears in chapters 8 and 9, as short labs that create and delete a cluster in the same session.</li>
 </ul>
-<p>Each chapter states its estimated cost in its "Before you start" section, with the source and date of the prices. As a guide, chapters 0 to 2 cost about 1.50 EUR if you do them over three days and then destroy the lab VM, or about 13 EUR a month if you keep the lab VM and use it 2 hours a day (Sweden Central prices, November 2026).</p>
+<h3 id="what-you-do">What you do</h3>
+<ul>
+<li>Read the estimate that each setup script prints, and answer no if it surprises you.</li>
+<li>Stop the lab VM at the end of every session, with the script of chapter 0. A VM that you only shut down from the inside still costs money, and chapter 0 explains why.</li>
+<li>Run the teardown script at the end of each chapter. A registry or a cluster costs money while it exists, whether you use it or not.</li>
+<li>The next day, open Cost analysis in the portal and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day.</li>
+<li>Take a budget alert seriously. It warns you, and it stops nothing.</li>
+</ul>
+<p>Each chapter states its estimated cost in its "Before you start" section, with the source and date of the prices.</p>
 
 <h2 id="getting-started">Getting started</h2>
 <ol>
