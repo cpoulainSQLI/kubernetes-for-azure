@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chapter 2: Kubernetes core | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body data-root="../../" data-page="chapters/02-kubernetes-core/index.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="../../index.html#outline">Part 1, foundations</a></nav>
+<h1 id="chapter-2-kubernetes-core">Chapter 2: Kubernetes core</h1>
+<p>Chapter 1 ran one container on one machine, by hand. Kubernetes runs many containers on many machines and keeps them in the state you describe. In this chapter you create a small Kubernetes cluster on the lab VM, deploy the sample app to it from YAML files, and watch Kubernetes scale it, heal it, update it and roll it back.</p>
+<h2 id="what-you-will-be-able-to-do">What you will be able to do</h2>
+<ul>
+<li>Name the parts of a Kubernetes cluster and say what each one does.</li>
+<li>Describe an application in YAML (namespace, Deployment, Service) and apply it declaratively.</li>
+<li>Use labels and selectors to connect a Service to the right pods.</li>
+<li>Scale a Deployment, roll out a new version, and roll it back.</li>
+<li>Show Kubernetes replacing a pod you deleted, and explain why it happens.</li>
+</ul>
+<h2 id="before-you-start">Before you start</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Chapter 1 done. The image <code>sample-app:1.0.0</code> and your <code>Dockerfile</code> are still on the lab VM. The chapter 1 registry can already be deleted, this chapter does not use it.</li>
+<li>The lab VM started (<code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>) and an SSH session open on it (<code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>), from the course folder on your own computer.</li>
+</ul>
+<h3 id="time-needed">Time needed</h3>
+<p>About 3 hours: 75 minutes of reading and 105 minutes for the lab.</p>
+<h3 id="estimated-cost">Estimated cost</h3>
+<p>The Kubernetes cluster runs inside the lab VM, so this chapter creates no new Azure resource. Prices from the Azure Retail Prices API, pay-as-you-go, region Sweden Central, in EUR, looked up on 13 November 2026.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Price</th>
+<th>For this chapter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lab VM, about 3 hours</td>
+<td>0.0826 per hour</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Disk and public IP of the lab VM</td>
+<td>about 0.25 per day</td>
+<td>0.25</td>
+</tr>
+</tbody>
+</table>
+<p>About 0.50 EUR in total.</p>
+<h2 id="concepts">Concepts</h2>
+<h3 id="what-kubernetes-does-and-how-a-cluster-is-built">What Kubernetes does, and how a cluster is built</h3>
+<p>Kubernetes is a container orchestrator. You tell it what should run, for example "three copies of this image, reachable on this port", and it starts the containers on its machines, watches them, and corrects any difference between what runs and what you asked for. That correction never stops: it is called reconciliation, and it is what makes Kubernetes heal itself.</p>
+<p>A cluster has two kinds of members. <a href="https://kubernetes.io/docs/concepts/overview/components/">Kubernetes components</a></p>
+<ul>
+<li>The control plane makes the decisions. The API server is the only entry point: <code>kubectl</code> and every other component talk to it. etcd is the database where the desired state and the current state are stored. The scheduler chooses a node for each new pod. The controller manager runs the control loops that reconcile, such as the one that keeps the right number of copies running.</li>
+<li>Nodes run the workloads. On each node, the kubelet is the agent that receives pods from the API server and asks the container runtime (containerd, CRI-O or another one) to start their containers. kube-proxy, or a component that replaces it, routes Service traffic on the node.</li>
+</ul>
+<p>In this chapter, kind builds the whole cluster inside Docker on the lab VM: each node is a container, and the containers of your app run inside those node containers. <a href="https://kind.sigs.k8s.io/">kind</a> It behaves like a real cluster for everything in this chapter, but it lives and dies with the lab VM.</p>
+<figure class="diagram">
+<img src="../../assets/diagrams/ch02-cluster-architecture.png" width="880" height="696" alt="kubectl talks to the API server on the control plane node. The API server reads and writes etcd. The scheduler and the controller manager talk to the API server. On each worker node, the kubelet talks to the API server and runs pods.">
+<figcaption>The parts of a Kubernetes cluster.</figcaption>
+</figure>
+<details class="check-yourself">
+<summary>you delete a pod with kubectl. Which component notices that a copy is missing, and which one starts the new container?</summary>
+<p>A controller in the controller manager notices, through the API server, that fewer pods exist than requested, and creates a new pod object. The scheduler assigns it to a node, and the kubelet of that node starts its container.</p>
+</details>
+<h3 id="declarative-and-imperative">Declarative and imperative</h3>
+<p>You can drive Kubernetes in two ways. <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/">Kubernetes object management</a></p>
+<ul>
+<li>Imperative commands say what to do now: <code>kubectl create deployment</code>, <code>kubectl scale</code>, <code>kubectl delete</code>. They are quick, but leave no record of the intended state.</li>
+<li>Declarative configuration says what should exist: you write YAML files that describe objects, and <code>kubectl apply -f &lt;file or folder&gt;</code> makes the cluster match them. Running it again changes nothing if nothing changed. The files can live in Git, be reviewed and be applied again on another cluster.</li>
+</ul>
+<p>This course works declaratively, the same way the Bicep files of chapter 0 describe Azure resources.</p>
+<p><code>kubectl diff -f &lt;file or folder&gt;</code> compares your files with the cluster and prints what <code>kubectl apply</code> would change, without changing anything. When it prints nothing, the files describe exactly what runs. <a href="https://kubernetes.io/docs/reference/kubectl/generated/kubectl_diff/">kubectl diff</a></p>
+<p>Every Kubernetes object in YAML has the same four top-level fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiVersion</code></td>
+<td>The API group and version of the object type, for example <code>apps/v1</code> for a Deployment</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>The type of object: <code>Namespace</code>, <code>Deployment</code>, <code>Service</code></td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>The name, the namespace and the labels</td>
+</tr>
+<tr>
+<td><code>spec</code></td>
+<td>The desired state, which you write</td>
+</tr>
+</tbody>
+</table>
+<p>The cluster adds a fifth field, <code>status</code>, with the current state. You never write it. <code>kubectl explain &lt;kind&gt;.&lt;field&gt;</code> describes any field from the command line, for example <code>kubectl explain deployment.spec.replicas</code>.</p>
+<details class="check-yourself">
+<summary>you scale a Deployment to 5 with kubectl scale, then run kubectl apply on a file that says replicas: 3. How many replicas run?</summary>
+<p>Three. <code>kubectl apply</code> makes the cluster match the file, and the file says 3. The imperative change was not recorded anywhere, so the next apply undid it. This is why changes go through the files.</p>
+</details>
+<h3 id="pods">Pods</h3>
+<p>A pod is the smallest unit Kubernetes runs: one or more containers that always run together on the same node, share one IP address and can share storage. Most pods hold a single container. <a href="https://kubernetes.io/docs/concepts/workloads/pods/">Pods</a></p>
+<p>Pods are disposable. When a pod dies or its node fails, Kubernetes does not repair it: a controller creates a new pod, with a new name and a new IP address. This is why you almost never create pods directly, and why nothing should rely on the address of a single pod.</p>
+<details class="check-yourself">
+<summary>why should the sample app not store anything important on the file system of its pod?</summary>
+<p>The pod can be replaced at any moment, and its replacement starts from the image again, with an empty writable layer. Anything written by the old pod is lost. Storage that survives pods is the subject of chapter 3.</p>
+</details>
+<h3 id="replicasets-deployments-and-self-healing">ReplicaSets, Deployments and self-healing</h3>
+<p>A ReplicaSet keeps a fixed number of identical pods running. It finds its pods by their labels, counts them, and creates or deletes pods until the count matches. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a></p>
+<p>A Deployment manages ReplicaSets for you, and adds updates and rollbacks on top. You describe the pods once, in the pod template of the Deployment, and say how many replicas (copies) you want. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployments</a></p>
+<figure class="diagram">
+<img src="../../assets/diagrams/ch02-deployment-service.png" width="880" height="552" alt="The Deployment sample-app owns two ReplicaSets: revision 1 runs sample-app:1.0.0 and owns the 5 pods, revision 2 ran sample-app:2.0.0 and is scaled to 0. The Service selects the pods by their label.">
+<figcaption>How a Deployment, its ReplicaSets, the pods and a Service fit together.</figcaption>
+</figure>
+<p>Self-healing is the reconciliation loop at work. If you delete a pod, or its container crashes, or its node disappears, the count in the ReplicaSet no longer matches and a new pod is created. Kubernetes restarts a crashed container in place, and replaces a pod that is gone.</p>
+<details class="check-yourself">
+<summary>a Deployment has 3 replicas. You delete its ReplicaSet with kubectl. What happens?</summary>
+<p>The ReplicaSet and its pods are deleted, then the Deployment controller sees that its ReplicaSet is missing and creates a new one, which creates 3 new pods. The Deployment is the object that holds the desired state.</p>
+</details>
+<h3 id="services">Services</h3>
+<p>Pods come and go with new addresses, so clients need a stable way to reach them. A Service gives a set of pods one stable virtual IP address and a DNS name inside the cluster, and spreads requests across the pods. It finds the pods with a label selector, and keeps the list of their addresses in EndpointSlice objects. A pod is only listed as ready once it is ready to receive traffic. <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Service</a>, <a href="https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/">EndpointSlices</a></p>
+<p>A Service maps a port of its own (<code>port</code>) to the port the containers listen on (<code>targetPort</code>). Its type decides who can reach it:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Reachable from</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ClusterIP</code> (the default)</td>
+<td>Inside the cluster only, on the Service IP and DNS name</td>
+<td>Traffic between apps</td>
+</tr>
+<tr>
+<td><code>NodePort</code></td>
+<td>Also from outside, on a fixed port of every node, by default between 30000 and 32767</td>
+<td>Quick access without any extra component, as in this lab</td>
+</tr>
+<tr>
+<td><code>LoadBalancer</code></td>
+<td>Also from outside, through a cloud load balancer</td>
+<td>Chapter 6, on AKS</td>
+</tr>
+</tbody>
+</table>
+<p>In the lab, the node addresses of kind are reachable from the lab VM, so a <code>NodePort</code> Service lets you test the app with <code>curl</code> from the VM.</p>
+<figure class="diagram">
+<img src="../../assets/diagrams/ch02-service-routing.png" width="880" height="488" alt="curl on the lab VM calls port 30080 of any node. The Service, with port 80 and targetPort 8080, sends the request to port 8080 of one of three pods, chosen by the label app.kubernetes.io/name=sample-app.">
+<figcaption>A request to the node port reaches port 8080 of one pod. Port 80 is the port that clients inside the cluster use.</figcaption>
+</figure>
+<details class="check-yourself">
+<summary>the Service exists, but its EndpointSlice lists no address. What is the most likely cause?</summary>
+<p>The Service selector does not match the labels of the pods, for example because of a typo in the key or the value. Compare <code>kubectl get pods --show-labels</code> with the selector in <code>kubectl describe service</code>.</p>
+</details>
+<h3 id="namespaces">Namespaces</h3>
+<p>A namespace divides one cluster into named areas. Object names must be unique within a namespace, but two namespaces can each have a Deployment called <code>sample-app</code>. Most commands take <code>-n &lt;namespace&gt;</code>, and without it <code>kubectl</code> uses the namespace called <code>default</code>. Some objects, such as nodes and namespaces themselves, belong to no namespace. <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/">Namespaces</a></p>
+<p>A namespace on its own is not a security boundary. It becomes one when access rules and network rules are attached to it, which is the subject of chapter 4. On OpenShift, namespaces are wrapped in projects, as you will see in chapter 7.</p>
+<details class="check-yourself">
+<summary>kubectl get pods shows nothing, but you are sure the app runs. What did you forget?</summary>
+<p>The namespace. Without <code>-n sample-app</code>, <code>kubectl</code> looks in <code>default</code>. <code>kubectl get pods -A</code> lists the pods of every namespace.</p>
+</details>
+<h3 id="labels-and-selectors">Labels and selectors</h3>
+<p>A label is a key and value pair attached to an object, such as <code>app.kubernetes.io/name: sample-app</code>. A selector is a query on labels. Labels are how Kubernetes objects find each other: a ReplicaSet finds its pods, and a Service finds the pods to send traffic to, by selector. <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/">Labels and selectors</a></p>
+<p>Kubernetes documents a set of recommended labels with the prefix <code>app.kubernetes.io/</code>, such as <code>name</code>, <code>version</code> and <code>part-of</code>, so that tools and people can read them the same way. <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/">Recommended labels</a></p>
+<p>In a Deployment, <code>spec.selector.matchLabels</code> must match the labels in <code>spec.template.metadata.labels</code>, and the selector cannot be changed after the Deployment is created. Choose a stable label for it, not one that changes with each version.</p>
+<details class="check-yourself">
+<summary>why is app.kubernetes.io/version a bad choice for the selector of a Deployment?</summary>
+<p>The version changes with every release, but the selector of a Deployment cannot change after creation. A new version would need a new Deployment. Select on a label that stays the same, such as the app name, and use the version label for information only.</p>
+</details>
+<h3 id="the-kubectl-commands-you-need">The kubectl commands you need</h3>
+<p><code>kubectl</code> talks to the API server of the cluster named in its current context. Chapter 2 setup sets the context to <code>kind-aro-k8s</code>. <a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a></p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kubectl get &lt;kind&gt; [-n &lt;ns&gt;] [-o wide or -o yaml] [--show-labels] [--watch]</code></td>
+<td>Lists objects, with more detail, as YAML, with labels, or as they change</td>
+</tr>
+<tr>
+<td><code>kubectl describe &lt;kind&gt; &lt;name&gt; -n &lt;ns&gt;</code></td>
+<td>Shows an object in detail, with recent events at the end. The first command to run when something is wrong</td>
+</tr>
+<tr>
+<td><code>kubectl apply -f &lt;file or folder&gt;</code></td>
+<td>Creates or updates objects from YAML</td>
+</tr>
+<tr>
+<td><code>kubectl delete &lt;kind&gt; &lt;name&gt; -n &lt;ns&gt;</code> or <code>kubectl delete -f &lt;file&gt;</code></td>
+<td>Deletes objects</td>
+</tr>
+<tr>
+<td><code>kubectl logs &lt;pod&gt; -n &lt;ns&gt;</code></td>
+<td>Shows the output of a container, like <code>docker logs</code></td>
+</tr>
+<tr>
+<td><code>kubectl exec -it &lt;pod&gt; -n &lt;ns&gt; -- &lt;command&gt;</code></td>
+<td>Runs a command in a container, like <code>docker exec</code></td>
+</tr>
+<tr>
+<td><code>kubectl rollout status, history, undo deployment/&lt;name&gt; -n &lt;ns&gt;</code></td>
+<td>Follows, lists and reverts the rollouts of a Deployment</td>
+</tr>
+<tr>
+<td><code>kubectl explain &lt;kind&gt;.&lt;field&gt;</code></td>
+<td>Documents any field</td>
+</tr>
+<tr>
+<td><code>kubectl create deployment &lt;name&gt; --image=&lt;image&gt; --dry-run=client -o yaml</code></td>
+<td>Prints a starting YAML file without creating anything</td>
+</tr>
+</tbody>
+</table>
+<details class="check-yourself">
+<summary>a pod stays in the Pending state. Which command shows why?</summary>
+<p><code>kubectl describe pod &lt;name&gt; -n &lt;namespace&gt;</code>. The events at the end of the output say what the scheduler or the kubelet is waiting for, such as missing resources or an image that cannot be pulled.</p>
+</details>
+<h3 id="rolling-updates-and-rollbacks">Rolling updates and rollbacks</h3>
+<p>When you change the pod template of a Deployment, for example the image tag, the Deployment creates a new ReplicaSet and moves the replicas over gradually: it starts new pods, waits for them to be ready, and removes old ones. By default, it allows up to 25% more pods than requested (<code>maxSurge</code>) and up to 25% fewer ready pods (<code>maxUnavailable</code>) during the change, so the app stays available. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment">Rolling update</a></p>
+<figure class="diagram">
+<img src="../../assets/diagrams/ch02-rolling-update.png" width="880" height="416" alt="Before the update, the ReplicaSet of version 1.0.0 has 5 ready pods and the ReplicaSet of version 2.0.0 does not exist. During the update, the old one has 4 ready pods while the new one starts 3. After it, the old one has 0 pods and is kept for a rollback, and the new one has 5 ready pods.">
+<figcaption>With 5 replicas and the default limits, at most 7 pods exist and at least 4 are ready at any moment.</figcaption>
+</figure>
+<p>Each change of the template is a revision. The old ReplicaSets are kept, scaled to zero (10 of them by default), so that <code>kubectl rollout undo</code> can bring the previous template back. A rollback is itself a new revision: after rolling out version 2 (revision 2) and undoing it, the Deployment is at revision 3, running the template of revision 1. Changing only the number of replicas is not a new revision. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment">Rolling back a Deployment</a></p>
+<p><code>kubectl rollout undo</code> is an imperative command: your YAML file still describes the version you rolled back from. Update the file afterwards, or the next <code>kubectl apply</code> rolls the bad version out again. <code>kubectl diff</code> shows the gap.</p>
+<details class="check-yourself">
+<summary>during a rolling update, the new pods never become ready. Does the app stop answering?</summary>
+<p>No. The Deployment only removes old pods as new ones become ready, within the <code>maxUnavailable</code> limit, so the old version keeps serving. The rollout stalls, <code>kubectl rollout status</code> waits, and <code>kubectl rollout undo</code> returns to the previous revision.</p>
+</details>
+<h3 id="images-in-a-kind-cluster">Images in a kind cluster</h3>
+<p>The nodes of a kind cluster do not see the images of the Docker engine on the lab VM. <code>kind load docker-image &lt;image&gt; --name aro-k8s</code> copies an image into every node. <a href="https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster">kind quick start</a></p>
+<p>When a tag other than <code>latest</code> is used, the default image pull policy is <code>IfNotPresent</code>: the kubelet uses the image already on the node and never contacts a registry. With <code>latest</code>, it tries to pull from Docker Hub and fails, because the image only exists locally. <a href="https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy">Image pull policy</a></p>
+<details class="check-yourself">
+<summary>after you roll out sample-app:2.0.0, the new pods show ErrImagePull. What did you forget?</summary>
+<p>To load the new image into the cluster with <code>kind load docker-image sample-app:2.0.0 --name aro-k8s</code>. Building it on the lab VM is not enough. The old pods keep running meanwhile, because the rollout waits for the new ones.</p>
+</details>
+<h2 id="knowledge-check">Knowledge check</h2>
+<p>Pick an answer, then check it. The explanation opens below each question.</p>
+<ol class="quiz">
+<li data-answer="b">
+<p class="question-text">Which component stores the desired state of the cluster?</p>
+<fieldset>
+<legend class="visually-hidden">Question 1</legend>
+<label><input type="radio" name="ch02-q1" value="a"> A. The kubelet.</label>
+<label><input type="radio" name="ch02-q1" value="b"> B. etcd.</label>
+<label><input type="radio" name="ch02-q1" value="c"> C. The scheduler.</label>
+<label><input type="radio" name="ch02-q1" value="d"> D. kube-proxy.</label>
+</fieldset>
+<details>
+<summary>Answer and explanation</summary>
+<p>Answer: B. etcd.</p>
+<p>etcd is the database of the control plane, and the API server is the only component that reads and writes it. The kubelet runs pods on a node, the scheduler places pods on nodes, and kube-proxy routes Service traffic. See <a href="https://kubernetes.io/docs/concepts/overview/components/">Kubernetes components</a>.</p>
+</details>
+</li>
+<li data-answer="c">
+<p class="question-text">You delete one pod of a Deployment that has 5 replicas. What happens next?</p>
+<fieldset>
+<legend class="visually-hidden">Question 2</legend>
+<label><input type="radio" name="ch02-q2" value="a"> A. The Deployment drops to 4 replicas until you scale it again.</label>
+<label><input type="radio" name="ch02-q2" value="b"> B. The deleted pod is restarted with the same name and IP address.</label>
+<label><input type="radio" name="ch02-q2" value="c"> C. Its ReplicaSet creates a new pod with a new name, to get back to 5.</label>
+<label><input type="radio" name="ch02-q2" value="d"> D. The whole Deployment is restarted.</label>
+</fieldset>
+<details>
+<summary>Answer and explanation</summary>
+<p>Answer: C. Its ReplicaSet creates a new pod with a new name, to get back to 5.</p>
+<p>The ReplicaSet counts the pods that match its selector and creates a new one as soon as the count drops. Pods are never repaired or recreated with the same identity: the new pod has a new name and a new IP address. The other pods are not touched. See <a href="https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a>.</p>
+</details>
+</li>
+<li data-answer="b">
+<p class="question-text">A Service of type <code>NodePort</code> with <code>port: 80</code>, <code>targetPort: 8080</code> and <code>nodePort: 30080</code> receives a request on port 30080 of a node. Where does the request go?</p>
+<fieldset>
+<legend class="visually-hidden">Question 3</legend>
+<label><input type="radio" name="ch02-q3" value="a"> A. To port 80 of one of the selected pods.</label>
+<label><input type="radio" name="ch02-q3" value="b"> B. To port 8080 of one of the selected pods.</label>
+<label><input type="radio" name="ch02-q3" value="c"> C. To port 30080 of every pod.</label>
+<label><input type="radio" name="ch02-q3" value="d"> D. To the API server.</label>
+</fieldset>
+<details>
+<summary>Answer and explanation</summary>
+<p>Answer: B. To port 8080 of one of the selected pods.</p>
+<p>The node port (30080) is the entry point on every node, <code>port</code> (80) is the port of the Service inside the cluster, and <code>targetPort</code> (8080) is the port of the containers. The Service sends each request to one ready pod among those its selector matches. See <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Service</a>.</p>
+</details>
+</li>
+<li data-answer="a">
+<p class="question-text">You run <code>kubectl rollout undo</code> after a bad rollout to version 2.0.0. What is still true afterwards?</p>
+<fieldset>
+<legend class="visually-hidden">Question 4</legend>
+<label><input type="radio" name="ch02-q4" value="a"> A. Your YAML file still says 2.0.0, so the next <code>kubectl apply</code> brings it back unless you change the file.</label>
+<label><input type="radio" name="ch02-q4" value="b"> B. The ReplicaSet of version 2.0.0 is deleted.</label>
+<label><input type="radio" name="ch02-q4" value="c"> C. The Deployment is back to revision 1.</label>
+<label><input type="radio" name="ch02-q4" value="d"> D. The pods of version 1.0.0 keep their old names.</label>
+</fieldset>
+<details>
+<summary>Answer and explanation</summary>
+<p>Answer: A. Your YAML file still says 2.0.0, so the next <code>kubectl apply</code> brings it back unless you change the file.</p>
+<p><code>rollout undo</code> changes the cluster, not your files. The ReplicaSet of 2.0.0 is kept, scaled to zero, for a later rollback. The Deployment moves to a new revision (3 in the lab), not back to 1, and the pods of 1.0.0 are new pods with new names. See <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment">Rolling back a Deployment</a>.</p>
+</details>
+</li>
+<li data-answer="c">
+<p class="question-text">Why does the lab use a <code>NodePort</code> Service rather than <code>ClusterIP</code>?</p>
+<fieldset>
+<legend class="visually-hidden">Question 5</legend>
+<label><input type="radio" name="ch02-q5" value="a"> A. <code>ClusterIP</code> Services cannot select pods.</label>
+<label><input type="radio" name="ch02-q5" value="b"> B. <code>NodePort</code> is faster.</label>
+<label><input type="radio" name="ch02-q5" value="c"> C. A <code>NodePort</code> Service is reachable from outside the cluster, here from the lab VM, without any extra component.</label>
+<label><input type="radio" name="ch02-q5" value="d"> D. kind does not support <code>ClusterIP</code>.</label>
+</fieldset>
+<details>
+<summary>Answer and explanation</summary>
+<p>Answer: C. A <code>NodePort</code> Service is reachable from outside the cluster, here from the lab VM, without any extra component.</p>
+<p>A <code>ClusterIP</code> Service selects pods just as well, but is only reachable from inside the cluster. <code>NodePort</code> is not faster, and kind supports both types. Chapter 3 covers better ways to expose an app. See <a href="https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types">Service types</a>.</p>
+</details>
+</li>
+</ol>
+<h2 id="lab">Lab</h2>
+<p class="sheet-link">The <a href="lab-sheet.html">lab sheet</a> holds this lab on one page, for a second screen or for printing.</p>
+<h3 id="goal">Goal</h3>
+<p>Run the sample app on Kubernetes from YAML files that you wrote: three replicas behind a Service, scaled to five, healed after a deleted pod, updated to version 2.0.0, and rolled back to 1.0.0.</p>
+<h3 id="tasks">Tasks</h3>
+<p>Write your YAML files in <code>~/work/02-kubernetes-core</code> on the lab VM, with the extension <code>.yaml</code>, and apply every change with <code>kubectl apply -f</code>. Put <code>metadata.namespace</code> in the files of the Deployment and the Service. The validation script follows the same seven stages.</p>
+<ol>
+<li>Create a namespace called <code>sample-app</code>.
+<details class="hint"><summary>Hint 1, where to look</summary><p>Every object needs <code>apiVersion</code>, <code>kind</code> and a name under <code>metadata</code>. <code>kubectl create namespace &lt;name&gt; --dry-run=client -o yaml</code> prints a file to start from, without creating anything.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>A Namespace is four lines: <code>apiVersion: v1</code>, <code>kind: Namespace</code>, and <code>name</code> under <code>metadata</code>. Apply it with <code>kubectl apply -f &lt;file&gt;</code>.</p></details>
+</li>
+<li>In that namespace, create a Deployment called <code>sample-app</code> that runs 3 replicas of <code>sample-app:1.0.0</code>. Label the pods <code>app.kubernetes.io/name: sample-app</code> and use that label as the selector. Declare container port 8080.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl create deployment &lt;name&gt; --image=&lt;image&gt; --dry-run=client -o yaml</code> prints a Deployment that you can save and edit. The label goes in two places, see Labels and selectors.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Under <code>spec</code> you need <code>replicas</code>, <code>selector.matchLabels</code> and <code>template</code>. The template has its own <code>metadata.labels</code>, which must contain the label of the selector, and <code>spec.containers</code> with a name, an image and <code>ports.containerPort</code>. Put <code>namespace</code> under the top-level <code>metadata</code>.</p></details>
+</li>
+<li>Expose the pods with a Service called <code>sample-app</code>, of type <code>NodePort</code>, on port 80, sending traffic to port 8080 of the pods, with node port 30080. Call the app through the Service from the lab VM several times and look at the host names in the answers.
+<details class="hint"><summary>Hint 1, where to look</summary><p>A Service has a type, a selector and a list of ports. One port entry can carry three numbers, and the Services section says which is which.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p><code>spec.type</code> is <code>NodePort</code>. <code>spec.selector</code> repeats the label of the pods. One entry under <code>spec.ports</code> has <code>port</code> for the Service, <code>targetPort</code> for the container and <code>nodePort</code> for every node. Find a node address with <code>kubectl get nodes -o wide</code> and call it with <code>curl</code>.</p></details>
+</li>
+<li>Scale the Deployment to 5 replicas by changing your file.
+<details class="hint"><summary>Hint 1, where to look</summary><p>The number of replicas is one field of the Deployment. Change it in the file, not with a command.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Edit <code>spec.replicas</code>, run <code>kubectl apply -f</code> on the file again, and watch the pods with <code>kubectl -n sample-app get pods --watch</code>.</p></details>
+</li>
+<li>Delete one pod and watch Kubernetes replace it. Note the names before and after.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl get pods</code> lists the names and <code>kubectl delete pod</code> removes one. Both need <code>-n sample-app</code>.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Compare the two lists: one name is gone and a new one, with a younger age, took its place. <code>kubectl -n sample-app describe replicaset</code> shows the event that created it.</p></details>
+</li>
+<li>Build <code>sample-app:2.0.0</code> from your chapter 1 Dockerfile, with the version set to 2.0.0, load it into the cluster, and roll it out by changing your file. Watch the rollout and call the app during it.
+<details class="hint"><summary>Hint 1, where to look</summary><p>Three steps: build the image with the new version and tag, copy it into the nodes of the cluster, and change the image in the Deployment file. Images in a kind cluster explains the second step.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Build as in chapter 1, with your version argument set to 2.0.0 and the tag <code>sample-app:2.0.0</code>. Load it with <code>kind load docker-image sample-app:2.0.0 --name aro-k8s</code>. Edit the image line of your file and apply it, then follow with <code>kubectl -n sample-app rollout status deployment/sample-app</code>.</p></details>
+</li>
+<li>Roll back to the previous revision with <code>kubectl rollout undo</code>, then make your files match the cluster again: edit them until <code>kubectl -n sample-app diff -f ~/work/02-kubernetes-core</code> prints nothing.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl rollout history</code> shows the revisions and <code>kubectl rollout undo</code> goes back one. Afterwards the cluster and your file disagree, and <code>kubectl diff</code> shows where.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Run <code>kubectl -n sample-app rollout undo deployment/sample-app</code>. Then set the image in your file back to the version that runs, and check that <code>kubectl -n sample-app diff -f ~/work/02-kubernetes-core</code> prints nothing.</p></details>
+</li>
+</ol>
+<p>Stretch goal: add a readiness probe on <code>/healthz</code> to the container, so that a pod only receives traffic once the app answers.</p>
+<h3 id="acceptance-criteria">Acceptance criteria</h3>
+<p><code>validate.sh</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning. The cluster itself is checked first: 3 ready nodes, 1 control plane and 2 workers.</p>
+<p>Stage 1, the namespace:</p>
+<ul>
+<li>The files in <code>~/work/02-kubernetes-core</code> are valid YAML and describe a Namespace called <code>sample-app</code>.</li>
+<li>The namespace exists in the cluster.</li>
+</ul>
+<p>Stage 2, the Deployment:</p>
+<ul>
+<li>The Deployment <code>sample-app</code> exists in the namespace and one of your files describes it. A file without <code>metadata.namespace</code> is a warning.</li>
+<li>It was applied with <code>kubectl apply</code>. No trace of it is a warning.</li>
+<li>Its pods carry the label <code>app.kubernetes.io/name=sample-app</code>, and its selector uses that label.</li>
+<li>It runs <code>sample-app</code> with a fixed tag, never <code>latest</code>.</li>
+<li>The container declares port 8080. Not declaring it is a warning.</li>
+<li>All its replicas are ready.</li>
+</ul>
+<p>Stage 3, the Service:</p>
+<ul>
+<li>The Service <code>sample-app</code> exists and one of your files describes it.</li>
+<li>It is of type <code>NodePort</code>, listens on port 80, targets port 8080 and uses node port 30080.</li>
+<li>Its selector uses <code>app.kubernetes.io/name=sample-app</code>, and every label it asks for is on the pods.</li>
+<li>It has one ready endpoint per pod.</li>
+<li><code>GET /healthz</code> through node port 30080 answers 200, and 20 requests to <code>/</code> are answered by at least 2 different pods. One pod answering all of them is a warning.</li>
+</ul>
+<p>Stage 4, scaling:</p>
+<ul>
+<li>The Deployment asks for 5 replicas, 5 are ready, and your file says 5 too.</li>
+</ul>
+<p>Stage 5, self-healing:</p>
+<ul>
+<li>Every pod of the app belongs to a ReplicaSet. A pod created by hand is a warning.</li>
+<li>With <code>--guided</code>: while the stage is open, one pod disappears and another one takes over.</li>
+</ul>
+<p>Stage 6, the rollout:</p>
+<ul>
+<li>The image <code>sample-app:2.0.0</code> exists on the lab VM and is loaded on both worker nodes.</li>
+<li>One ReplicaSet of the Deployment runs or ran <code>2.0.0</code>.</li>
+<li>No rollout is in progress or stuck.</li>
+</ul>
+<p>Stage 7, the rollback:</p>
+<ul>
+<li>The Deployment runs the <code>1.0.0</code> image again, and <code>GET /</code> reports version 1.0.0.</li>
+<li>The Deployment is at revision 3 or more. A lower revision is a warning.</li>
+<li>Your files match the cluster: <code>kubectl diff</code> finds no difference.</li>
+</ul>
+<p>Live tests, only with <code>--deep</code>:</p>
+<ul>
+<li>The validator deletes one pod, and 5 pods are ready again within 60 seconds.</li>
+<li>A temporary pod in the namespace reaches the Service by its name, <code>http://sample-app/healthz</code>.</li>
+</ul>
+<p>Checked by you, because no script can:</p>
+<ul>
+<li>You can explain which controller replaced the deleted pod, and what the scheduler and the kubelet did next.</li>
+<li>You called the app during the rollout and saw both versions answer.</li>
+</ul>
+<p>Useful starting points, without giving the solution away: the Concepts section above lists every field and command you need, <code>kubectl explain</code> documents any field, and <code>kubectl create deployment --dry-run=client -o yaml</code> prints a starting file. To call a node port from the VM, find the address of a node with <code>kubectl get nodes -o wide</code>.</p>
+<h3 id="run-setup-validate-and-teardown">Run setup, validate and teardown</h3>
+<p>In your SSH session on the lab VM:</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Setup: creates the kind cluster and loads sample-app:1.0.0
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/setup.sh
+
+# 2. Do the tasks. The guided check follows you: task, check, hints
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --guided
+
+# 3. Full report at the end. It changes nothing
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+
+# 4. Optional: the full report with the live tests
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --deep
+
+# 5. Teardown, once the report passes: deletes the kind cluster
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/teardown.sh
+</code></pre>
+<p>Setup creates the cluster from <a href="lab/kind-cluster.yaml">lab/kind-cluster.yaml</a>, which pins the Kubernetes version, waits for the nodes and loads <code>sample-app:1.0.0</code> into them. Creating the cluster takes 1 to 3 minutes.</p>
+<p>If the lab VM was stopped and started again, check the cluster with <code>kubectl get nodes</code> after you reconnect. Whether a kind cluster comes back after a reboot of its machine depends on Docker restarting the node containers (not verified for this version of kind). If the nodes are not Ready after a few minutes, delete the cluster with <code>teardown.sh</code>, run <code>setup.sh</code> again and apply your files again.</p>
+<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/02-kubernetes-core/index.html">reference solution</a>.</p>
+<h3 id="how-the-validation-works">How the validation works</h3>
+<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
+<p>Stage 5 is the exception. Nothing in the cluster shows afterwards that you deleted a pod, so the guided check notes the pod names when the stage opens and looks for a replaced pod when you press Enter. Keep it open while you delete the pod. In a full report this check is left out, unless <code>--deep</code> lets the validator delete a pod itself.</p>
+<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a check that was left out. The exit code is 0 when no check fails. <code>validate.sh --stage 3</code> reports on one stage only.</p>
+<p>The report and the guided check are read-only: they read your YAML files and the cluster, and send <code>GET</code> requests to the app. Only <code>--deep</code> changes something. It deletes one pod of your Deployment, which the ReplicaSet replaces, and runs a temporary <code>busybox</code> pod, which it removes. That pod needs the nodes to reach Docker Hub. When they cannot, the test ends with a warning. The live tests never touch your files or your Azure resources.</p>
+<h3 id="break-it-and-fix-it">Break it and fix it</h3>
+<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>break.sh</code> changes one object of your namespace with a <code>kubectl</code> command, the way a hurried colleague would. There are four faults, and tells you only what a user would report.</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Inject one fault, after a confirmation
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh
+
+# 2. Investigate, then say what the cause is
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --diagnose
+
+# 3. Repair it, then confirm
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+
+# Or give up and put the lab back as it was
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --restore
+</code></pre>
+<p>Investigate with <code>kubectl get</code>, <code>kubectl describe</code>, <code>kubectl logs</code> and <code>kubectl diff</code>. Do not run <code>validate.sh</code> before you have a diagnosis, because its report names the fault. Each run of <code>break.sh</code> injects another fault, until you have seen them all. The script never touches your YAML files or Azure, so your files always describe the lab as it was. Do this before teardown, which deletes the cluster.</p>
+<h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
+<ul>
+<li>Run <code>teardown.sh</code> on the lab VM once the full report passes. It deletes the kind cluster and lists what is still tagged <code>course=aro-k8s</code> in Azure. Your YAML files and your images stay on the VM.</li>
+<li>From your own computer, deallocate the VM: <code data-ps=".\scripts\lab-vm.ps1 stop">scripts/lab-vm.sh stop</code>.</li>
+<li>This chapter adds no Azure resource, so Cost analysis only shows the lab VM, its disk and its IP address.</li>
+<li>If you take a long break before chapter 3, destroy the lab with <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code> and recreate it later with setup. You then rebuild the images from your Dockerfile.</li>
+</ul>
+<h2 id="sources">Sources</h2>
+<p>Prices: <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, queried on 13 November 2026 with <code>armSkuName eq 'Standard_D2as_v5' and armRegionName eq 'swedencentral'</code>, currency EUR.</p>
+<ul>
+<li><a href="https://kubernetes.io/docs/concepts/overview/components/">Kubernetes components</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/">Kubernetes object management</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/pods/">Pods</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployments</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/services-networking/service/">Service</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/">EndpointSlices</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/">Namespaces</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/">Labels and selectors</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/">Recommended labels</a></li>
+<li><a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a></li>
+<li><a href="https://kubernetes.io/docs/reference/kubectl/generated/kubectl_diff/">kubectl diff</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy">Images and image pull policy</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Install kubectl on Linux, version skew</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/">kind quick start</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/configuration/">kind configuration</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/known-issues/">kind known issues</a></li>
+<li><a href="https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0">kind release v0.33.0</a></li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

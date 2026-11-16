@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab sheet, chapter 1 | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body class="sheet" data-root="../../" data-page="chapters/01-containers/lab-sheet.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="index.html">Chapter 1: containers</a></nav>
+<h1 id="lab-sheet">Lab sheet, chapter 1</h1>
+<p class="lede">The lab of <a href="index.html">chapter 1: containers</a> on one page: tasks, acceptance criteria, commands and clean-up. The explanations are in the chapter. This page is generated from it.</p>
+<h2 id="lab">Lab</h2>
+<h3 id="goal">Goal</h3>
+<p>Package the sample app as a small container image that runs as a non-root user, run it on the lab VM, and publish it to your chapter registry.</p>
+<h3 id="tasks">Tasks</h3>
+<p>Work on the lab VM, in <code>~/work/01-containers/sample-app</code>. The validation script follows the same four stages.</p>
+<ol>
+<li>Write a file called <code>Dockerfile</code> next to <code>main.go</code>, with two stages. The first stage compiles the app with the <code>golang</code> image. The last stage receives only the binary, sets a numeric non-root user, declares port 8080 and starts the app. The version reaches the app at build time, through a build argument.
+<details class="hint"><summary>Hint 1, where to look</summary><p>The Dockerfile section of this chapter lists every instruction you need: <code>FROM</code>, <code>WORKDIR</code>, <code>COPY</code>, <code>ARG</code>, <code>RUN</code>, <code>COPY --from</code>, <code>USER</code>, <code>EXPOSE</code> and <code>ENTRYPOINT</code>. The sample app page gives the <code>go build</code> command with the version flag.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>First stage: start from the <code>golang</code> image and give the stage a name with <code>AS</code>, copy <code>go.mod</code> and the Go files, declare an <code>ARG</code> for the version, and run <code>go build</code> with <code>CGO_ENABLED=0</code> and the <code>-ldflags</code> option, writing the binary to a path you choose. Last stage: start from <code>scratch</code>, copy the binary from the first stage, then <code>USER</code>, <code>EXPOSE</code> and <code>ENTRYPOINT</code> in the exec form.</p></details>
+</li>
+<li>Build the image and tag it <code>sample-app:1.0.0</code>, with the version set to 1.0.0. List its layers with <code>docker image history sample-app:1.0.0</code> and name the instruction that created each one.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>docker build</code> takes a tag, a value for each <code>ARG</code>, and the folder to build from as its last argument. The tables in Running containers and in Tags and digests show the options.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>The command has this shape: <code>docker build --build-arg &lt;name&gt;=&lt;value&gt; -t &lt;name&gt;:&lt;tag&gt; &lt;folder&gt;</code>. Run it from the folder that holds the Dockerfile, so that the folder is a dot.</p></details>
+</li>
+<li>Start a container named <code>sample-app</code> from the image, in the background, with port 8080 of the container published on port 8080 of the VM. Call <code>/</code> and <code>/healthz</code> with <code>curl</code>, then read the container logs and match each line with the request that produced it.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>docker run</code> needs three options here: one to run in the background, one to name the container and one to publish a port. The table in Running containers lists them.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>The shape is <code>docker run --detach --name &lt;name&gt; --publish &lt;VM port&gt;:&lt;container port&gt; &lt;image&gt;</code>. If the name is already taken, remove the old container first with <code>docker rm --force &lt;name&gt;</code>.</p></details>
+</li>
+<li>Sign Docker in to your chapter registry with <code>az acr login</code>, tag the image with the login server of the registry, and push it.
+<details class="hint"><summary>Hint 1, where to look</summary><p>The registry only accepts an image whose name starts with its login server, and Docker has to be signed in first. See Registries and Azure Container Registry.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Three commands: <code>az acr login --name &lt;registry name&gt;</code>, <code>docker tag &lt;local image&gt; &lt;login server&gt;/&lt;name&gt;:&lt;tag&gt;</code>, then <code>docker push</code> with that new name. The registry name is the login server without <code>.azurecr.io</code>.</p></details>
+</li>
+</ol>
+<p>Useful starting points, without giving the solution away: the <a href="../../sample-app/index.html">sample app page</a> explains how to set the version at build time, the Concepts section above lists every instruction and command you need, and the official <code>golang</code> image on Docker Hub provides the Go toolchain for the build stage.</p>
+<h3 id="acceptance-criteria">Acceptance criteria</h3>
+<p><code>validate.sh</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning.</p>
+<p>Stage 1, the Dockerfile:</p>
+<ul>
+<li>The file is <code>~/work/01-containers/sample-app/Dockerfile</code> and has at least two stages.</li>
+<li>Every base image names a version. A missing tag or <code>latest</code> is a warning.</li>
+<li>The last stage is not built on the <code>golang</code> image and takes the binary from an earlier stage with <code>COPY --from</code>. Copying the whole build folder into it is a warning.</li>
+<li>The last stage sets a numeric non-root <code>USER</code> (a user name is a warning) and declares port 8080 with <code>EXPOSE</code>.</li>
+<li>The last stage has a start command in the exec form. The shell form is a warning.</li>
+<li>The version goes from a build argument to <code>-X main.version</code>. A version written into the file is a warning.</li>
+</ul>
+<p>Stage 2, the image:</p>
+<ul>
+<li>A local image named <code>sample-app:1.0.0</code> exists.</li>
+<li>It runs as a non-root user and declares port 8080.</li>
+<li>It starts the app directly. A start through a shell is a warning.</li>
+<li>It is 100 MB or less. Above that is a warning.</li>
+</ul>
+<p>Stage 3, the container:</p>
+<ul>
+<li>A container named <code>sample-app</code> runs from the current <code>sample-app:1.0.0</code> image, as a non-root user.</li>
+<li>Port 8080 of the container is published on port 8080 of the VM.</li>
+<li><code>GET /healthz</code> answers 200, and <code>GET /</code> reports <code>"version":"1.0.0"</code>.</li>
+</ul>
+<p>Stage 4, the registry:</p>
+<ul>
+<li>Your current image also carries the name of your chapter registry.</li>
+<li>The registry holds <code>sample-app:1.0.0</code>, with the same digest as your local image.</li>
+</ul>
+<p>Live tests, only with <code>--deep</code>, on a temporary container:</p>
+<ul>
+<li>The app answers 200 on <code>/healthz</code> when it starts with another user ID, as it will on OpenShift.</li>
+<li><code>docker stop</code> ends the app within 5 seconds with exit code 0. Anything else is a warning.</li>
+</ul>
+<p>Checked by you, because no script can:</p>
+<ul>
+<li>You wrote the <code>Dockerfile</code> yourself.</li>
+<li>You can say which request produced each line of the container logs.</li>
+<li>You can name the instruction behind each layer listed by <code>docker image history sample-app:1.0.0</code>.</li>
+</ul>
+<h3 id="run-setup-validate-and-teardown">Run setup, validate and teardown</h3>
+<p>In your SSH session on the lab VM:</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Setup: creates the registry and copies the sample app to ~/work
+~/aro-k8s-course/chapters/01-containers/lab/setup.sh
+
+# 2. Do the tasks. The guided check follows you: task, check, hints
+~/aro-k8s-course/chapters/01-containers/lab/validate.sh --guided
+
+# 3. Full report at the end. It changes nothing
+~/aro-k8s-course/chapters/01-containers/lab/validate.sh
+
+# 4. Optional: the full report with the live tests
+~/aro-k8s-course/chapters/01-containers/lab/validate.sh --deep
+
+# 5. Teardown, once the report passes: removes the container and the registry
+~/aro-k8s-course/chapters/01-containers/lab/teardown.sh
+</code></pre>
+<p>Setup signs the Azure CLI in with the VM's managed identity, deploys the registry from <a href="lab/infra/registry.bicep">lab/infra/registry.bicep</a> and prints its login server. Keep the local images when you are done: chapter 2 uses them.</p>
+<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/01-containers/index.html">reference solution</a>.</p>
+<h3 id="how-the-validation-works">How the validation works</h3>
+<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
+<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a live test that was left out. The exit code is 0 when no check fails. <code>validate.sh --stage 2</code> reports on one stage only.</p>
+<p>The report and the guided check are read-only: they read your <code>Dockerfile</code>, inspect Docker and the registry, and send <code>GET</code> requests. Only <code>--deep</code> starts something: a temporary container from your image, which it stops and removes. It never touches your own container, your image or your Azure resources.</p>
+<h3 id="break-it-and-fix-it">Break it and fix it</h3>
+<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>break.sh</code> puts one of four faults into your running container, and tells you only what a user would report.</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Inject one fault, after a confirmation
+~/aro-k8s-course/chapters/01-containers/lab/break.sh
+
+# 2. Investigate, then say what the cause is
+~/aro-k8s-course/chapters/01-containers/lab/break.sh --diagnose
+
+# 3. Repair it, then confirm
+~/aro-k8s-course/chapters/01-containers/lab/validate.sh --stage 3
+
+# Or give up and put the lab back as it was
+~/aro-k8s-course/chapters/01-containers/lab/break.sh --restore
+</code></pre>
+<p>Investigate with <code>docker ps</code>, <code>docker logs</code> and <code>docker inspect</code>. Do not run <code>validate.sh</code> before you have a diagnosis, because its report names the fault. Each run of <code>break.sh</code> injects another fault, until you have seen them all. The script only stops or replaces the <code>sample-app</code> container. It never touches your image, your <code>Dockerfile</code> or Azure. Do this before teardown, which removes the container.</p>
+<h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
+<ul>
+<li>Run <code>teardown.sh</code> on the lab VM once the full report passes. It removes the <code>sample-app</code> container, deletes the registry and lists what is still tagged <code>course=aro-k8s</code>. The resource group and the VM of chapter 0 should be the only items left.</li>
+<li>Keep the local images on the VM. Chapter 2 loads <code>sample-app:1.0.0</code> into Kubernetes.</li>
+<li>From your own computer, deallocate the VM: <code data-ps=".\scripts\lab-vm.ps1 stop">scripts/lab-vm.sh stop</code>.</li>
+<li>The next day, Cost analysis filtered on <code>chapter=01</code> should show one day of Basic registry, about 0.14 EUR.</li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

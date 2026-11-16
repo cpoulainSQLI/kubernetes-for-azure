@@ -1,0 +1,20 @@
+flowchart TB
+  you["You, on the lab VM<br/>kubectl"]
+  subgraph cp["Control plane node"]
+    api["API server"]
+    etcd[("etcd<br/>desired and current state")]
+    sched["Scheduler"]
+    cm["Controller manager"]
+  end
+  subgraph w1["Worker node 1"]
+    k1["kubelet"] --> p1["Pods"]
+  end
+  subgraph w2["Worker node 2"]
+    k2["kubelet"] --> p2["Pods"]
+  end
+  you --> api
+  api <--> etcd
+  sched --> api
+  cm --> api
+  k1 --> api
+  k2 --> api

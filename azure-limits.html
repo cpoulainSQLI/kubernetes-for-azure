@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quotas, regions and providers | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="assets/course.css">
+<script src="assets/search-index.js" defer></script>
+<script src="assets/course.js" defer></script>
+</head>
+<body data-root="" data-page="azure-limits.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
+<h1 id="quotas-regions-and-resource-providers">Quotas, regions and resource providers</h1>
+<p class="lede">Three limits of an Azure subscription that the readiness report of chapter 0 checks. None of them stops you before chapter 6. Read this page when the report prints a warning about them, or before you create a cluster in Azure.</p>
+<h2 id="vcpu-quotas">vCPU quotas</h2>
+<p>Azure limits how many vCPUs (virtual processors) you can run, at two levels in each region: a total for the region, and a limit per VM family, such as the DASv5 family of the lab VM. A deployment fails if it would exceed either one. <a href="https://learn.microsoft.com/azure/virtual-machines/quotas">Check vCPU quotas</a></p>
+<p>The lab VM needs 2 vCPUs. The big number comes with chapter 8: creating an ARO cluster needs at least 44 cores at install time (8 for a temporary bootstrap machine, 24 for the control plane, 12 for the workers), and 36 once the install is done. With the default sizes, those cores come from the DSv5 family. <a href="https://learn.microsoft.com/azure/openshift/create-cluster">Create an ARO cluster</a></p>
+<p>Credit-based subscriptions often start with a lower limit. The readiness report shows this as a warning, not a failure, because nothing before chapter 8 needs it. You can ask for a higher limit in the portal, under Quotas. <a href="https://learn.microsoft.com/azure/quotas/per-vm-quota-requests">Increase VM-family vCPU quotas</a></p>
+<details class="check-yourself">
+<summary>the readiness report warns that your regional vCPU limit is 20. Can you go on with chapter 1?</summary>
+<p>Yes. Chapters 1 to 7 need far fewer vCPUs. Before chapter 8, request a higher limit, and read that chapter's notes on what to do if a credit-based subscription cannot get it.</p>
+</details>
+<h2 id="regions">Regions</h2>
+<p>The default region of the course is Sweden Central. In November 2026 it was the cheapest of four European regions compared for the lab VM size, and it offers AKS and ARO. The region is a setting in <code>.env</code>, and the readiness report checks that your region offers the VM size, AKS and ARO for your subscription.</p>
+<h2 id="resource-providers">Resource providers</h2>
+<p>Each Azure service is delivered by a resource provider, such as <code>Microsoft.Compute</code> for VMs. A subscription must register a provider before it can use it. Setup registers every provider the course uses, which costs nothing. <a href="https://learn.microsoft.com/azure/azure-resource-manager/management/resource-providers-and-types">Resource providers</a></p>
+<h2 id="sources">Sources</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/azure/virtual-machines/quotas">Check vCPU quotas</a></li>
+<li><a href="https://learn.microsoft.com/azure/quotas/per-vm-quota-requests">Increase VM-family vCPU quotas</a></li>
+<li><a href="https://learn.microsoft.com/azure/openshift/create-cluster">Create an Azure Red Hat OpenShift cluster</a></li>
+<li><a href="https://learn.microsoft.com/azure/azure-resource-manager/management/resource-providers-and-types">Azure resource providers and types</a></li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

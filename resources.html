@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resources | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="assets/course.css">
+<script src="assets/search-index.js" defer></script>
+<script src="assets/course.js" defer></script>
+</head>
+<body data-root="" data-page="resources.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
+<h1 id="resources">Resources</h1>
+<p>Primary sources used across the course, grouped by topic. Each chapter also lists the exact pages it relies on in its own Sources section.</p>
+<h2 id="azure-basics-not-taught-in-this-course">Azure basics (not taught in this course)</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/training/paths/az-900-describe-cloud-concepts/">Microsoft Learn: Azure Fundamentals learning path</a>. Use it if subscriptions, resource groups or regions are new to you.</li>
+<li><a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>. The source of every price quoted in the course.</li>
+</ul>
+<h2 id="your-own-computer">Your own computer</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/cli/azure/install-azure-cli">Install the Azure CLI on Windows, macOS or Linux</a>. Needed before chapter 0.</li>
+<li><a href="https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse">Get started with OpenSSH for Windows</a>. The SSH client that the PowerShell scripts use.</li>
+<li><a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a>. Why Windows asks you to allow the course scripts.</li>
+</ul>
+<h2 id="cost-and-guardrails">Cost and guardrails</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/manage/spending-limit">Azure spending limit</a>. What happens when a credit-based subscription runs out of credit.</li>
+<li><a href="https://azure.microsoft.com/pricing/member-offers/credit-for-visual-studio-subscribers/">Monthly Azure credit for Visual Studio subscribers</a>. Credit amounts, lower default quotas and unavailable regions.</li>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/costs/tutorial-acm-create-budgets">Create and manage budgets</a>. Actual and forecast alerts, and how often budgets are evaluated.</li>
+<li><a href="https://learn.microsoft.com/azure/virtual-machines/states-billing">States and billing status of Azure virtual machines</a>. Why "stopped" and "deallocated" are billed differently.</li>
+</ul>
+<h2 id="containers">Containers</h2>
+<ul>
+<li><a href="https://docs.docker.com/get-started/docker-overview/">Docker overview</a>. Images, containers and registries.</li>
+<li><a href="https://docs.docker.com/reference/dockerfile/">Dockerfile reference</a>. Every instruction used in chapter 1.</li>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Multi-stage builds</a> and <a href="https://docs.docker.com/build/cache/">build cache</a>. How to keep images small and builds fast.</li>
+<li><a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker Engine on Ubuntu</a>. How the lab VM gets Docker.</li>
+<li><a href="https://docs.podman.io/">Podman documentation</a>. The daemonless container engine you meet again with OpenShift in chapter 7.</li>
+<li><a href="https://github.com/opencontainers/image-spec">Open Container Initiative image specification</a>. The standard image format that Docker, Podman, Kubernetes and OpenShift all share.</li>
+<li><a href="https://learn.microsoft.com/azure/container-registry/">Azure Container Registry documentation</a>. Push and pull images, service tiers and authentication.</li>
+<li><a href="https://learn.microsoft.com/azure/container-registry/container-registry-authentication-managed-identity">Use a managed identity to authenticate to Azure Container Registry</a>. How the lab VM signs in without a password.</li>
+</ul>
+<h2 id="kubernetes">Kubernetes</h2>
+<ul>
+<li><a href="https://kubernetes.io/docs/home/">Kubernetes documentation</a>. Concepts, tasks and reference.</li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/components/">Kubernetes components</a>. Control plane, nodes and kubelet.</li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/">Kubernetes object management</a>. Imperative commands compared with declarative configuration.</li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployments</a> and <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Services</a>. The two objects at the heart of chapter 2.</li>
+<li><a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a>. Commands worth keeping open in a tab.</li>
+<li><a href="https://kind.sigs.k8s.io/">kind documentation</a>. Local Kubernetes clusters in containers, used in chapters 2 to 5.</li>
+</ul>
+<h2 id="openshift-outside-azure-red-hat">OpenShift outside Azure (Red Hat)</h2>
+<ul>
+<li><a href="https://www.redhat.com/en/blog/openshift-and-kubernetes-whats-difference">OpenShift and Kubernetes: what's the difference?</a> Kubernetes as the kernel, OpenShift as the distribution, OKD as the community upstream. Use it for the mental model of where OpenShift sits.</li>
+<li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.1/html/cli_reference/usage-oc-kubectl">Usage of oc and kubectl commands</a>. Why kubectl works on OpenShift and what <code>oc</code> adds. The page found is an old version: check the latest version before quoting details.</li>
+<li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.5/html-single/architecture/index">OpenShift Container Platform architecture</a>. RHCOS, CRI-O, operators that manage the platform, OperatorHub. Old version found: use the latest docs for anything version-sensitive.</li>
+<li><a href="https://developers.redhat.com/blog/2020/10/26/adapting-docker-and-kubernetes-containers-to-run-on-red-hat-openshift-container-platform">Adapting Docker and Kubernetes containers to run on OpenShift</a>. Arbitrary user IDs and ports above 1023. Written in 2020: check it against current documentation in chapter 7.</li>
+<li><a href="https://developers.redhat.com/developer-sandbox">Developer Sandbox for Red Hat OpenShift</a>. Free shared OpenShift cluster with a Red Hat account, used in chapter 7.</li>
+</ul>
+<h2 id="azure-red-hat-openshift-microsoft-learn">Azure Red Hat OpenShift (Microsoft Learn)</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/azure/openshift/intro-openshift">What is Azure Red Hat OpenShift?</a> Jointly engineered and operated by Microsoft and Red Hat, two architectures (standard and hosted control planes). Use it for the service definition.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/responsibility-matrix">Responsibility matrix (standard architecture)</a>. Who owns what between the customer, Microsoft and Red Hat.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/support-policies-v4">Support policy (standard architecture)</a>. Hard rules: 3 control plane and 3 worker nodes minimum, 250 workers maximum, supported VM sizes, operators that must stay managed.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/openshift-service-definitions">Service definitions</a>. Regions, node counts and what the customer pays for.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/create-cluster">Quickstart: create a cluster</a>. Prerequisites: 44 cores at install time, resource providers, permissions, optional pull secret.</li>
+<li><a href="https://azure.microsoft.com/pricing/details/openshift/">Azure Red Hat OpenShift pricing</a>. Licence charged per worker vCPU on top of the VMs.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/concepts-networking">Network concepts</a>. Load balancers, Private Link for site reliability engineering access, NSG, egress.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/howto-understand-managed-identities">Understand managed identities in ARO</a>. One managed identity per core operator plus a cluster identity.</li>
+<li><a href="https://learn.microsoft.com/azure/openshift/howto-create-hosted-node-pool">ARO with hosted control planes</a>. Node pools and <code>az aro hcp</code>. Preview status may change.</li>
+<li><a href="https://learn.microsoft.com/training/modules/introduction-to-azure-red-hat-openshift/">Training module: Introduction to Azure Red Hat OpenShift</a>. Short beginner module with an assessment.</li>
+</ul>
+<h2 id="aro-compared-with-aks">ARO compared with AKS</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/azure/aks/compare-container-options-with-aks">Comparing AKS with other Azure container options</a>. Positions ARO as the fit when the organisation already uses OpenShift.</li>
+<li><a href="https://learn.microsoft.com/azure/architecture/guide/choose-azure-container-service">Choose an Azure container service</a>. Service models, AKS Standard and AKS Automatic.</li>
+<li><a href="https://learn.microsoft.com/azure/architecture/microservices/design/compute-options">Choose a compute option for microservices</a>. AKS offers Dapr and KEDA as managed add-ons, while on OpenShift you install and maintain them yourself.</li>
+</ul>
+<h2 id="gaps">Gaps</h2>
+<ul>
+<li>Microsoft Learn has no official side-by-side table of ARO and AKS. Chapter 10 builds one from the responsibility matrix, the support policy and the AKS documentation.</li>
+<li>Current Red Hat architecture pages are needed to replace the old 4.x links above before chapter 7 is written.</li>
+<li>Communities of ARO practitioners have not been researched yet.</li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

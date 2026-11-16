@@ -1,0 +1,15 @@
+# Learner settings stay on the learner's machine.
+.env
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build output from the sample app
+sample-app/sample-app
+
+# Tools used by the checks
+node_modules/
+__pycache__/

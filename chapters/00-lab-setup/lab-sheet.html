@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab sheet, chapter 0 | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body class="sheet" data-root="../../" data-page="chapters/00-lab-setup/lab-sheet.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="index.html">Chapter 0: lab setup</a></nav>
+<h1 id="lab-sheet">Lab sheet, chapter 0</h1>
+<p class="lede">The lab of <a href="index.html">chapter 0: lab setup</a> on one page: tasks, acceptance criteria, commands and clean-up. The explanations are in the chapter. This page is generated from it.</p>
+<h2 id="lab">Lab</h2>
+<h3 id="goal">Goal</h3>
+<p>Build your lab environment from code, connect to it from your own computer only, and get a readiness report with no failed check.</p>
+<h3 id="acceptance-criteria">Acceptance criteria</h3>
+<p>Checked by the validation script, <code data-ps="validate.ps1">validate.sh</code>:</p>
+<ul>
+<li>The readiness report has no <code>[FAIL]</code>. It covers your subscription, the region, the resource providers, the quotas, the budget and its alerts, the tags, the auto-shutdown, the network rule, the identity of the VM and the tools on the VM.</li>
+<li>Warnings are allowed. Each <code>[WARN]</code> comes with a hint that says what it means and when it matters.</li>
+</ul>
+<p>Checked by you:</p>
+<ul>
+<li>You can open an SSH session on the lab VM from your computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, and run <code>docker version</code>, <code>kind version</code> and <code>kubectl version --client</code> there.</li>
+<li>You have found the budget in the portal (Cost Management, Budgets) and the auto-shutdown setting on the VM (Operations, Auto-shutdown), and you know at what time the VM shuts down.</li>
+<li>You can say, for each <code>[WARN]</code> in your report, whether it matters before chapter 8.</li>
+<li>At the end of your session, the VM is deallocated. <code data-ps=".\scripts\lab-vm.ps1 status">scripts/lab-vm.sh status</code> shows its state.</li>
+</ul>
+<h3 id="prepare">Prepare</h3>
+<p>Run these on your own computer, in a terminal opened in the course folder.</p>
+<ol>
+<li>
+<p>Sign in to Azure and check which subscription the CLI uses. If it is the wrong one, select the right one with <code>az account set --subscription "&lt;name&gt;"</code>.</p>
+<pre><code class="language-bash">az login
+az account show --query "{name:name, state:state}" --output table
+</code></pre>
+</li>
+<li>
+<p>Create an SSH key pair for the course, in your own <code>.ssh</code> folder. Never copy the private key anywhere else. A passphrase is recommended: you then type it when a script connects to the VM, or load the key once into your SSH agent, as described in <a href="https://learn.microsoft.com/azure/virtual-machines/linux/create-ssh-keys-detailed">SSH keys for Linux VMs</a>.</p>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">New-Item -ItemType Directory -Force "$HOME\.ssh" | Out-Null
+ssh-keygen -t ed25519 -f "$HOME\.ssh\aro-k8s-lab" -C aro-k8s-lab
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<pre><code class="language-bash">mkdir -p ~/.ssh
+ssh-keygen -t ed25519 -f ~/.ssh/aro-k8s-lab -C aro-k8s-lab
+</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Copy <code>.env.example</code> to <code>.env</code> and fill it in. At least set <code>LEARNER_IP</code> to your current public IPv4 address, which any "what is my IP" web page shows. Read the comment above each setting. Keep <code>SSH_KEY_PATH=~/.ssh/aro-k8s-lab</code>: the scripts understand <code>~</code> on every platform.</p>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">Copy-Item .env.example .env
+notepad .env
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos" data-label="macOS (bash)">
+<pre><code class="language-bash">cp .env.example .env
+open -e .env
+</code></pre>
+</div>
+<div class="tab-panel" data-os="linux" data-label="Linux (bash)">
+<pre><code class="language-bash">cp .env.example .env
+nano .env
+</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>On Windows only: allow the course scripts to run in this PowerShell window. Windows blocks scripts by default, and files extracted from a downloaded zip file are marked as coming from the internet. The first command only applies to the current window. If your organisation enforces another policy, the command reports it: ask your administrator, or run the bash scripts in Git Bash. <a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a></p>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+Get-ChildItem -Recurse -File | Unblock-File
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<p>Nothing to do. The scripts are already executable.</p>
+</div>
+</div>
+</li>
+</ol>
+<h3 id="run-setup-validate-and-teardown">Run setup, validate and teardown</h3>
+<p>From the course folder on your computer:</p>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">.\chapters\00-lab-setup\lab\setup.ps1          # creates or updates everything, asks before changing anything
+.\chapters\00-lab-setup\lab\validate.ps1       # readiness report, changes nothing
+.\scripts\lab-vm.ps1 connect                   # SSH session on the lab VM, type exit to leave
+.\chapters\00-lab-setup\lab\teardown.ps1 stop  # deallocates the VM at the end of the session
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<pre><code class="language-bash">chapters/00-lab-setup/lab/setup.sh          # creates or updates everything, asks before changing anything
+chapters/00-lab-setup/lab/validate.sh       # readiness report, changes nothing
+scripts/lab-vm.sh connect                   # SSH session on the lab VM, type exit to leave
+chapters/00-lab-setup/lab/teardown.sh stop  # deallocates the VM at the end of the session
+</code></pre>
+</div>
+</div>
+<p>The bash scripts also run in Git Bash on Windows, if you prefer bash there.</p>
+<p>Setup prints the estimated cost, asks for confirmation, registers the resource providers, creates the budget and deploys the Bicep files. It then waits for SSH and for cloud-init, which takes 5 to 10 minutes on the first run, and copies the course files to <code>~/aro-k8s-course</code> on the VM.</p>
+<p>Next time you work on the course, start the VM with <code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>. If you edit <code>.env</code> or update the course files on your computer, copy them to the VM again with <code data-ps=".\scripts\lab-vm.ps1 sync">scripts/lab-vm.sh sync</code>. Your own work on the VM, in <code>~/work</code>, is never overwritten.</p>
+<h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
+<ul>
+<li>At the end of every session, deallocate the VM: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 stop">chapters/00-lab-setup/lab/teardown.sh stop</code>. Keep the environment, chapter 1 needs it.</li>
+<li>When you stop following the course for more than a few weeks, destroy everything: <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code>. It deletes the resource group and the budget, then lists anything still tagged <code>course=aro-k8s</code>. Azure may also have created a resource group called <code>NetworkWatcherRG</code> when the network was created. It has no cost on its own and you can keep it. <a href="https://learn.microsoft.com/azure/network-watcher/network-watcher-create">Network Watcher</a></li>
+<li>A day later, open Cost Management, Cost analysis, and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day. For a one-hour session, expect well under 1 EUR.</li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

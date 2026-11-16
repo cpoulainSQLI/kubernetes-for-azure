@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lesson 1. Where OpenShift and ARO sit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="course">Azure Red Hat OpenShift, from zero. Lesson 1 of the course.</p>
+
+<h1>Where OpenShift and ARO sit</h1>
+<p class="lede">Before you touch a client cluster, you need one picture in your head: what is plain Kubernetes, what OpenShift adds, and what Azure adds on top. By the end of this lesson you will have logged in to a real OpenShift cluster and seen the difference yourself.</p>
+
+<details>
+<summary>Before reading, make a guess</summary>
+<p>You log in to an OpenShift cluster with <code>oc</code>, then run <code>kubectl get routes</code>. Routes are an OpenShift-only object. Does the command work or fail? Write your guess down. You will check it in the exercise.</p>
+</details>
+
+<h2>Kubernetes is the kernel, OpenShift is a distribution</h2>
+<p>Red Hat describes Kubernetes the way you would describe the Linux kernel: a core that many products ship, each with its own patches and tooling around it. OpenShift is one of those products, a distribution of Kubernetes, in the same way Fedora or RHEL are distributions of Linux.<sup class="ref"><a href="#r1">1</a></sup></p>
+<p>The chain has three links. Kubernetes is one of the upstream projects of OKD, the community distribution (formerly called Origin). Red Hat then packages OKD with operators and other components into the supported product, OpenShift Container Platform.<sup class="ref"><a href="#r1">1</a></sup> When people say "OpenShift" at a client, they nearly always mean that product.</p>
+
+<h2>What OpenShift adds to Kubernetes</h2>
+<p>You already know pods, deployments and services. They all exist unchanged on OpenShift. What changes is everything around them.</p>
+<ul>
+<li>The nodes run Red Hat Enterprise Linux CoreOS (RHCOS), an operating system built only to run OpenShift, with CRI-O as the container runtime.<sup class="ref"><a href="#r2">2</a></sup></li>
+<li>The platform manages itself through operators. The Cluster Version Operator and the Machine Config Operator handle upgrades of the control plane and of the node operating systems, so nobody patches nodes by hand.<sup class="ref"><a href="#r2">2</a></sup></li>
+<li>There are extra API objects that build on Kubernetes primitives, for example Routes, BuildConfigs and ImageStreams, plus projects, which map namespaces to authenticated users.<sup class="ref"><a href="#r3">3</a></sup></li>
+<li>It ships a web console and its own CLI, <code>oc</code>.<sup class="ref"><a href="#r2">2</a></sup></li>
+</ul>
+<p>Because OpenShift is a certified Kubernetes distribution, <code>kubectl</code> still works against it. <code>oc</code> does everything <code>kubectl</code> does and adds commands such as <code>oc login</code>, <code>oc new-project</code> and <code>oc new-app</code>.<sup class="ref"><a href="#r3">3</a></sup></p>
+
+<h2>The picture to keep</h2>
+<p>Read each column from the bottom up. The colour tells you who brings the layer.</p>
+<p class="legend"><span class="k8s">Plain Kubernetes</span><span class="ocp">Added by OpenShift</span><span class="azure">Added by Azure</span></p>
+<figure class="wide">
+<div class="stacks">
+  <div class="stack">
+    <div class="layer plain">Linux of your choice and a container runtime</div>
+    <div class="layer k8s">Kubernetes API, scheduler, controllers</div>
+    <div class="layer plain">Ingress, registry, CI/CD, monitoring<small>you choose and assemble them</small></div>
+    <div class="title">Plain Kubernetes</div>
+  </div>
+  <div class="stack">
+    <div class="layer ocp">RHCOS and CRI-O</div>
+    <div class="layer k8s">Kubernetes API, scheduler, controllers</div>
+    <div class="layer ocp">Platform operators<small>upgrades, node configuration</small></div>
+    <div class="layer ocp">Routes, projects, builds, image streams, console, oc</div>
+    <div class="title">OpenShift (OKD or OCP)</div>
+  </div>
+  <div class="stack">
+    <div class="layer ocp">RHCOS and CRI-O</div>
+    <div class="layer k8s">Kubernetes API, scheduler, controllers</div>
+    <div class="layer ocp">Platform operators</div>
+    <div class="layer ocp">Routes, projects, builds, image streams, console, oc</div>
+    <div class="layer azure">Operated by Microsoft and Red Hat<small>in your subscription, on your Azure bill, 99.95% SLA</small></div>
+    <div class="title">ARO</div>
+  </div>
+  <div class="stack">
+    <div class="layer azure">Azure virtual machines as nodes</div>
+    <div class="layer k8s">Kubernetes API, scheduler, controllers</div>
+    <div class="layer azure">Azure managed add-ons<small>for example KEDA and Dapr</small></div>
+    <div class="title">AKS</div>
+  </div>
+</div>
+<figcaption>ARO is the OpenShift column with an Azure operating layer on top. AKS is a different column altogether: Microsoft's managed Kubernetes, with no OpenShift layer in it.</figcaption>
+</figure>
+
+<p>Two facts about ARO go with this picture. It is jointly engineered, operated and supported by Microsoft and Red Hat, and the clusters live in your own subscription.<sup class="ref"><a href="#r4">4</a></sup> It also comes in two architectures. In the standard one, the control plane runs on dedicated nodes inside your subscription. In the hosted control planes one (built on the HyperShift project, in preview at the time of writing), Microsoft and Red Hat host the control plane and only the workers run in your subscription.<sup class="ref"><a href="#r4">4</a></sup></p>
+<p>On Microsoft's side, AKS and ARO are listed as two separate managed Kubernetes offers.<sup class="ref"><a href="#r5">5</a></sup> One concrete difference you will meet early: AKS provides KEDA and Dapr as managed add-ons, while on OpenShift you install and maintain them yourself.<sup class="ref"><a href="#r7">7</a></sup></p>
+
+<div class="callout">
+<p>Why this matters for your mission: on a client ARO cluster, anything you learnt on plain Kubernetes still applies. The new things you have to learn are the red layers. The teal layer is about who does what, and that is what the client will ask you about.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Answer without scrolling back up. Getting one wrong now is useful, it shows what to reread.</p>
+<div class="quiz">
+  <div class="q" data-answer="b">
+    <p class="prompt">In Red Hat's own framing, how do Kubernetes and OpenShift relate?</p>
+    <div class="options">
+      <button data-key="a">OpenShift is a fork that replaced Kubernetes</button>
+      <button data-key="b">Kubernetes is the kernel, OpenShift the distribution</button>
+      <button data-key="c">OpenShift is a plugin installed into Kubernetes</button>
+      <button data-key="d">Kubernetes is the commercial edition of OpenShift</button>
+    </div>
+    <p class="why">Red Hat compares Kubernetes to the Linux kernel and OpenShift to a distribution built around it. OpenShift contains Kubernetes, it does not replace or plug into it.</p>
+  </div>
+  <div class="q" data-answer="d">
+    <p class="prompt">What is OKD?</p>
+    <div class="options">
+      <button data-key="a">Microsoft's own managed OpenShift offer on Azure today</button>
+      <button data-key="b">The OpenShift command line tool for cluster admins</button>
+      <button data-key="c">Red Hat's operating system for the cluster nodes</button>
+      <button data-key="d">The open source community Kubernetes distribution behind OpenShift</button>
+    </div>
+    <p class="why">OKD (formerly Origin) is the community distribution. Red Hat packages it with operators and other components into OpenShift Container Platform. The node OS is RHCOS, the CLI is <code>oc</code>, the Azure offer is ARO.</p>
+  </div>
+  <div class="q" data-answer="b">
+    <p class="prompt">After <code>oc login</code>, you run <code>kubectl get routes</code>. What happens?</p>
+    <div class="options">
+      <button data-key="a">It fails, kubectl only knows upstream Kubernetes types</button>
+      <button data-key="b">It works, Routes are served by the API</button>
+      <button data-key="c">It fails until you install a kubectl plugin</button>
+      <button data-key="d">It works, but only for cluster administrator accounts</button>
+    </div>
+    <p class="why">The OpenShift objects live in the cluster's API server, not in the client. Any Kubernetes client can list them, as long as your permissions allow it. You will verify this in the exercise.</p>
+  </div>
+  <div class="q" data-answer="a">
+    <p class="prompt">In OpenShift 4, how do the node operating systems get updated?</p>
+    <div class="options">
+      <button data-key="a">Platform operators roll out updates to RHCOS nodes</button>
+      <button data-key="b">Admins patch each node over SSH by hand</button>
+      <button data-key="c">A cloud agent installs packages from the internet</button>
+      <button data-key="d">Each pod updates the node it runs on</button>
+    </div>
+    <p class="why">The Machine Config Operator and the Cluster Version Operator manage the nodes and the control plane. This is one of the main things OpenShift adds over a do-it-yourself Kubernetes.</p>
+  </div>
+  <div class="q" data-answer="c">
+    <p class="prompt">Which statement about AKS is accurate?</p>
+    <div class="options">
+      <button data-key="a">AKS is simply Microsoft's brand for Azure OpenShift</button>
+      <button data-key="b">AKS runs OKD with support from Microsoft only</button>
+      <button data-key="c">AKS is managed Kubernetes, outside the OpenShift family</button>
+      <button data-key="d">AKS needs a Red Hat pull secret first</button>
+    </div>
+    <p class="why">Microsoft lists AKS and ARO as two separate managed Kubernetes offers. AKS has no OpenShift layer, which is exactly why the two are worth comparing.</p>
+  </div>
+</div>
+
+<h2>Exercise: see it on a real cluster</h2>
+<p>About 20 minutes. You need a Red Hat account and a phone number for verification. The Developer Sandbox gives you 30 days of free access to a shared OpenShift cluster run by Red Hat.<sup class="ref"><a href="#r6">6</a></sup> It is not ARO, but everything in the red layers is the same.</p>
+<ol class="steps">
+<li>
+  <p>Open the <a href="https://developers.redhat.com/developer-sandbox">Developer Sandbox</a>, sign in and start your sandbox. Launch OpenShift and you land in the web console.</p>
+</li>
+<li>
+  <p>Install <code>oc</code>. The console links to the download from its help menu (the question mark icon), under Command line tools. Check it with <code>oc version</code>. You probably already have <code>kubectl</code>, any recent version will do.</p>
+</li>
+<li>
+  <p>In the console, open your user menu (top right), choose Copy login command, then Display token. Run the <code>oc login --token=... --server=...</code> line it shows you. The token is a credential: keep it out of chats, tickets and screenshots.</p>
+</li>
+<li>
+  <p>For each command, write your prediction first, then run it.</p>
+<pre><code>oc whoami
+oc project
+kubectl get pods
+oc api-resources --api-group=route.openshift.io
+kubectl api-resources --api-group=route.openshift.io</code></pre>
+  <details>
+  <summary>What you should see</summary>
+  <p><code>oc whoami</code> prints your sandbox user name. <code>oc project</code> prints the project the sandbox created for you. <code>kubectl get pods</code> works without any extra setup, because <code>oc login</code> wrote your credentials to the same kubeconfig file that <code>kubectl</code> reads. It may say no resources were found, that is fine.</p>
+  <p>The two <code>api-resources</code> commands print the same thing: the <code>routes</code> resource in the <code>route.openshift.io</code> group. The OpenShift objects belong to the server, so both clients see them. Compare with the guess you made at the top of the page.</p>
+  </details>
+</li>
+<li>
+  <p>In one or two sentences, tell your teacher (the agent) what surprised you, or paste any error you got. That closes the feedback loop for this lesson.</p>
+</li>
+</ol>
+
+<h2>Read next</h2>
+<div class="source">
+<p>Primary source for this lesson: <a href="https://www.redhat.com/en/blog/openshift-and-kubernetes-whats-difference">OpenShift and Kubernetes: what's the difference?</a> on the Red Hat blog. It is short and gives the kernel and distribution model from the people who build it. Then skim <a href="https://learn.microsoft.com/azure/openshift/intro-openshift">What is Azure Red Hat OpenShift?</a> on Microsoft Learn.</p>
+</div>
+<div class="ask">
+<p>Anything unclear, or a question this raised about your client context? Ask the agent. It is your teacher for this course and can go deeper on any point.</p>
+</div>
+<div class="next">
+<p>Quick reference for this lesson: <a href="../reference/kubernetes-openshift-aro-layers.html">Kubernetes, OpenShift, ARO and AKS layers</a>. Coming next, lesson 2: the OpenShift objects you will meet on day one (projects, routes and security context constraints).</p>
+</div>
+
+<h2>Sources</h2>
+<ol class="refs">
+<li id="r1">Red Hat, OpenShift and Kubernetes: what's the difference? <a href="https://www.redhat.com/en/blog/openshift-and-kubernetes-whats-difference">redhat.com/en/blog/openshift-and-kubernetes-whats-difference</a></li>
+<li id="r2">Red Hat, OpenShift Container Platform architecture (4.x). <a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.5/html-single/architecture/index">docs.redhat.com</a></li>
+<li id="r3">Red Hat, Usage of oc and kubectl commands. <a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.1/html/cli_reference/usage-oc-kubectl">docs.redhat.com</a></li>
+<li id="r4">Microsoft Learn, What is Azure Red Hat OpenShift? <a href="https://learn.microsoft.com/azure/openshift/intro-openshift">learn.microsoft.com/azure/openshift/intro-openshift</a></li>
+<li id="r5">Microsoft Learn, What is Azure Kubernetes Service? <a href="https://learn.microsoft.com/azure/aks/what-is-aks">learn.microsoft.com/azure/aks/what-is-aks</a></li>
+<li id="r6">Red Hat Developer, Developer Sandbox. <a href="https://developers.redhat.com/developer-sandbox">developers.redhat.com/developer-sandbox</a></li>
+<li id="r7">Azure Architecture Center, Choose a compute option for microservices. <a href="https://learn.microsoft.com/azure/architecture/microservices/design/compute-options">learn.microsoft.com</a></li>
+</ol>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

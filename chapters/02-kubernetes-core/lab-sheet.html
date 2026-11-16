@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab sheet, chapter 2 | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body class="sheet" data-root="../../" data-page="chapters/02-kubernetes-core/lab-sheet.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="index.html">Chapter 2: Kubernetes core</a></nav>
+<h1 id="lab-sheet">Lab sheet, chapter 2</h1>
+<p class="lede">The lab of <a href="index.html">chapter 2: Kubernetes core</a> on one page: tasks, acceptance criteria, commands and clean-up. The explanations are in the chapter. This page is generated from it.</p>
+<h2 id="lab">Lab</h2>
+<h3 id="goal">Goal</h3>
+<p>Run the sample app on Kubernetes from YAML files that you wrote: three replicas behind a Service, scaled to five, healed after a deleted pod, updated to version 2.0.0, and rolled back to 1.0.0.</p>
+<h3 id="tasks">Tasks</h3>
+<p>Write your YAML files in <code>~/work/02-kubernetes-core</code> on the lab VM, with the extension <code>.yaml</code>, and apply every change with <code>kubectl apply -f</code>. Put <code>metadata.namespace</code> in the files of the Deployment and the Service. The validation script follows the same seven stages.</p>
+<ol>
+<li>Create a namespace called <code>sample-app</code>.
+<details class="hint"><summary>Hint 1, where to look</summary><p>Every object needs <code>apiVersion</code>, <code>kind</code> and a name under <code>metadata</code>. <code>kubectl create namespace &lt;name&gt; --dry-run=client -o yaml</code> prints a file to start from, without creating anything.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>A Namespace is four lines: <code>apiVersion: v1</code>, <code>kind: Namespace</code>, and <code>name</code> under <code>metadata</code>. Apply it with <code>kubectl apply -f &lt;file&gt;</code>.</p></details>
+</li>
+<li>In that namespace, create a Deployment called <code>sample-app</code> that runs 3 replicas of <code>sample-app:1.0.0</code>. Label the pods <code>app.kubernetes.io/name: sample-app</code> and use that label as the selector. Declare container port 8080.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl create deployment &lt;name&gt; --image=&lt;image&gt; --dry-run=client -o yaml</code> prints a Deployment that you can save and edit. The label goes in two places, see Labels and selectors.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Under <code>spec</code> you need <code>replicas</code>, <code>selector.matchLabels</code> and <code>template</code>. The template has its own <code>metadata.labels</code>, which must contain the label of the selector, and <code>spec.containers</code> with a name, an image and <code>ports.containerPort</code>. Put <code>namespace</code> under the top-level <code>metadata</code>.</p></details>
+</li>
+<li>Expose the pods with a Service called <code>sample-app</code>, of type <code>NodePort</code>, on port 80, sending traffic to port 8080 of the pods, with node port 30080. Call the app through the Service from the lab VM several times and look at the host names in the answers.
+<details class="hint"><summary>Hint 1, where to look</summary><p>A Service has a type, a selector and a list of ports. One port entry can carry three numbers, and the Services section says which is which.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p><code>spec.type</code> is <code>NodePort</code>. <code>spec.selector</code> repeats the label of the pods. One entry under <code>spec.ports</code> has <code>port</code> for the Service, <code>targetPort</code> for the container and <code>nodePort</code> for every node. Find a node address with <code>kubectl get nodes -o wide</code> and call it with <code>curl</code>.</p></details>
+</li>
+<li>Scale the Deployment to 5 replicas by changing your file.
+<details class="hint"><summary>Hint 1, where to look</summary><p>The number of replicas is one field of the Deployment. Change it in the file, not with a command.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Edit <code>spec.replicas</code>, run <code>kubectl apply -f</code> on the file again, and watch the pods with <code>kubectl -n sample-app get pods --watch</code>.</p></details>
+</li>
+<li>Delete one pod and watch Kubernetes replace it. Note the names before and after.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl get pods</code> lists the names and <code>kubectl delete pod</code> removes one. Both need <code>-n sample-app</code>.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Compare the two lists: one name is gone and a new one, with a younger age, took its place. <code>kubectl -n sample-app describe replicaset</code> shows the event that created it.</p></details>
+</li>
+<li>Build <code>sample-app:2.0.0</code> from your chapter 1 Dockerfile, with the version set to 2.0.0, load it into the cluster, and roll it out by changing your file. Watch the rollout and call the app during it.
+<details class="hint"><summary>Hint 1, where to look</summary><p>Three steps: build the image with the new version and tag, copy it into the nodes of the cluster, and change the image in the Deployment file. Images in a kind cluster explains the second step.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Build as in chapter 1, with your version argument set to 2.0.0 and the tag <code>sample-app:2.0.0</code>. Load it with <code>kind load docker-image sample-app:2.0.0 --name aro-k8s</code>. Edit the image line of your file and apply it, then follow with <code>kubectl -n sample-app rollout status deployment/sample-app</code>.</p></details>
+</li>
+<li>Roll back to the previous revision with <code>kubectl rollout undo</code>, then make your files match the cluster again: edit them until <code>kubectl -n sample-app diff -f ~/work/02-kubernetes-core</code> prints nothing.
+<details class="hint"><summary>Hint 1, where to look</summary><p><code>kubectl rollout history</code> shows the revisions and <code>kubectl rollout undo</code> goes back one. Afterwards the cluster and your file disagree, and <code>kubectl diff</code> shows where.</p></details>
+<details class="hint"><summary>Hint 2, the shape of the answer</summary><p>Run <code>kubectl -n sample-app rollout undo deployment/sample-app</code>. Then set the image in your file back to the version that runs, and check that <code>kubectl -n sample-app diff -f ~/work/02-kubernetes-core</code> prints nothing.</p></details>
+</li>
+</ol>
+<p>Stretch goal: add a readiness probe on <code>/healthz</code> to the container, so that a pod only receives traffic once the app answers.</p>
+<h3 id="acceptance-criteria">Acceptance criteria</h3>
+<p><code>validate.sh</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning. The cluster itself is checked first: 3 ready nodes, 1 control plane and 2 workers.</p>
+<p>Stage 1, the namespace:</p>
+<ul>
+<li>The files in <code>~/work/02-kubernetes-core</code> are valid YAML and describe a Namespace called <code>sample-app</code>.</li>
+<li>The namespace exists in the cluster.</li>
+</ul>
+<p>Stage 2, the Deployment:</p>
+<ul>
+<li>The Deployment <code>sample-app</code> exists in the namespace and one of your files describes it. A file without <code>metadata.namespace</code> is a warning.</li>
+<li>It was applied with <code>kubectl apply</code>. No trace of it is a warning.</li>
+<li>Its pods carry the label <code>app.kubernetes.io/name=sample-app</code>, and its selector uses that label.</li>
+<li>It runs <code>sample-app</code> with a fixed tag, never <code>latest</code>.</li>
+<li>The container declares port 8080. Not declaring it is a warning.</li>
+<li>All its replicas are ready.</li>
+</ul>
+<p>Stage 3, the Service:</p>
+<ul>
+<li>The Service <code>sample-app</code> exists and one of your files describes it.</li>
+<li>It is of type <code>NodePort</code>, listens on port 80, targets port 8080 and uses node port 30080.</li>
+<li>Its selector uses <code>app.kubernetes.io/name=sample-app</code>, and every label it asks for is on the pods.</li>
+<li>It has one ready endpoint per pod.</li>
+<li><code>GET /healthz</code> through node port 30080 answers 200, and 20 requests to <code>/</code> are answered by at least 2 different pods. One pod answering all of them is a warning.</li>
+</ul>
+<p>Stage 4, scaling:</p>
+<ul>
+<li>The Deployment asks for 5 replicas, 5 are ready, and your file says 5 too.</li>
+</ul>
+<p>Stage 5, self-healing:</p>
+<ul>
+<li>Every pod of the app belongs to a ReplicaSet. A pod created by hand is a warning.</li>
+<li>With <code>--guided</code>: while the stage is open, one pod disappears and another one takes over.</li>
+</ul>
+<p>Stage 6, the rollout:</p>
+<ul>
+<li>The image <code>sample-app:2.0.0</code> exists on the lab VM and is loaded on both worker nodes.</li>
+<li>One ReplicaSet of the Deployment runs or ran <code>2.0.0</code>.</li>
+<li>No rollout is in progress or stuck.</li>
+</ul>
+<p>Stage 7, the rollback:</p>
+<ul>
+<li>The Deployment runs the <code>1.0.0</code> image again, and <code>GET /</code> reports version 1.0.0.</li>
+<li>The Deployment is at revision 3 or more. A lower revision is a warning.</li>
+<li>Your files match the cluster: <code>kubectl diff</code> finds no difference.</li>
+</ul>
+<p>Live tests, only with <code>--deep</code>:</p>
+<ul>
+<li>The validator deletes one pod, and 5 pods are ready again within 60 seconds.</li>
+<li>A temporary pod in the namespace reaches the Service by its name, <code>http://sample-app/healthz</code>.</li>
+</ul>
+<p>Checked by you, because no script can:</p>
+<ul>
+<li>You can explain which controller replaced the deleted pod, and what the scheduler and the kubelet did next.</li>
+<li>You called the app during the rollout and saw both versions answer.</li>
+</ul>
+<p>Useful starting points, without giving the solution away: the Concepts section above lists every field and command you need, <code>kubectl explain</code> documents any field, and <code>kubectl create deployment --dry-run=client -o yaml</code> prints a starting file. To call a node port from the VM, find the address of a node with <code>kubectl get nodes -o wide</code>.</p>
+<h3 id="run-setup-validate-and-teardown">Run setup, validate and teardown</h3>
+<p>In your SSH session on the lab VM:</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Setup: creates the kind cluster and loads sample-app:1.0.0
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/setup.sh
+
+# 2. Do the tasks. The guided check follows you: task, check, hints
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --guided
+
+# 3. Full report at the end. It changes nothing
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+
+# 4. Optional: the full report with the live tests
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --deep
+
+# 5. Teardown, once the report passes: deletes the kind cluster
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/teardown.sh
+</code></pre>
+<p>Setup creates the cluster from <a href="lab/kind-cluster.yaml">lab/kind-cluster.yaml</a>, which pins the Kubernetes version, waits for the nodes and loads <code>sample-app:1.0.0</code> into them. Creating the cluster takes 1 to 3 minutes.</p>
+<p>If the lab VM was stopped and started again, check the cluster with <code>kubectl get nodes</code> after you reconnect. Whether a kind cluster comes back after a reboot of its machine depends on Docker restarting the node containers (not verified for this version of kind). If the nodes are not Ready after a few minutes, delete the cluster with <code>teardown.sh</code>, run <code>setup.sh</code> again and apply your files again.</p>
+<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/02-kubernetes-core/index.html">reference solution</a>.</p>
+<h3 id="how-the-validation-works">How the validation works</h3>
+<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
+<p>Stage 5 is the exception. Nothing in the cluster shows afterwards that you deleted a pod, so the guided check notes the pod names when the stage opens and looks for a replaced pod when you press Enter. Keep it open while you delete the pod. In a full report this check is left out, unless <code>--deep</code> lets the validator delete a pod itself.</p>
+<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a check that was left out. The exit code is 0 when no check fails. <code>validate.sh --stage 3</code> reports on one stage only.</p>
+<p>The report and the guided check are read-only: they read your YAML files and the cluster, and send <code>GET</code> requests to the app. Only <code>--deep</code> changes something. It deletes one pod of your Deployment, which the ReplicaSet replaces, and runs a temporary <code>busybox</code> pod, which it removes. That pod needs the nodes to reach Docker Hub. When they cannot, the test ends with a warning. The live tests never touch your files or your Azure resources.</p>
+<h3 id="break-it-and-fix-it">Break it and fix it</h3>
+<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>break.sh</code> changes one object of your namespace with a <code>kubectl</code> command, the way a hurried colleague would. There are four faults, and tells you only what a user would report.</p>
+<p class="where">On the lab VM (bash)</p>
+<pre><code class="language-bash"># 1. Inject one fault, after a confirmation
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh
+
+# 2. Investigate, then say what the cause is
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --diagnose
+
+# 3. Repair it, then confirm
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+
+# Or give up and put the lab back as it was
+~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --restore
+</code></pre>
+<p>Investigate with <code>kubectl get</code>, <code>kubectl describe</code>, <code>kubectl logs</code> and <code>kubectl diff</code>. Do not run <code>validate.sh</code> before you have a diagnosis, because its report names the fault. Each run of <code>break.sh</code> injects another fault, until you have seen them all. The script never touches your YAML files or Azure, so your files always describe the lab as it was. Do this before teardown, which deletes the cluster.</p>
+<h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
+<ul>
+<li>Run <code>teardown.sh</code> on the lab VM once the full report passes. It deletes the kind cluster and lists what is still tagged <code>course=aro-k8s</code> in Azure. Your YAML files and your images stay on the VM.</li>
+<li>From your own computer, deallocate the VM: <code data-ps=".\scripts\lab-vm.ps1 stop">scripts/lab-vm.sh stop</code>.</li>
+<li>This chapter adds no Azure resource, so Cost analysis only shows the lab VM, its disk and its IP address.</li>
+<li>If you take a long break before chapter 3, destroy the lab with <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code> and recreate it later with setup. You then rebuild the images from your Dockerfile.</li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>
