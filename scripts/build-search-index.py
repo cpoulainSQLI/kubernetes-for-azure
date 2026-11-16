@@ -19,8 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "assets" / "search-index.js"
 MAX_TEXT = 1500
 SKIP_TAGS = {"script", "style", "nav", "button", "noscript"}
-# Folders that are not part of the site: tool folders, the local notes and the working copies of a coding agent.
-SKIP_NAMES = {".git", "node_modules", "handoff", ".claude"}
+# Folders that are not part of the site: tool folders, the local notes, the working copies of a coding agent
+# and the pages that the deployment collects.
+SKIP_NAMES = {".git", "node_modules", "handoff", ".claude", "_site"}
 
 
 def course_pages():

@@ -1,3 +1,6 @@
 # Archived drafts are kept unchanged and are not checked.
 archive/lessons/
 archive/reference/
+# Working copies of a coding agent, and the pages that the deployment collects.
+.claude/
+_site/

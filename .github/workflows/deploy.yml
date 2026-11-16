@@ -1,0 +1,88 @@
+# Checks the website against the lab kit, then publishes it to Azure Static Web Apps.
+# It runs on every push to main. The deployment starts only when every check passes.
+# The secret AZURE_STATIC_WEB_APPS_API_TOKEN holds the deployment token of the Static Web Apps resource (infra/).
+name: Check and deploy the website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      KIT_DIR: ${{ github.workspace }}/kubernetes-for-azure-labs
+    steps:
+      # The two repositories sit side by side, as on the author's computer, so that the checker of
+      # the website does not scan the kit as part of the site.
+      - name: Check out the website
+        uses: actions/checkout@v7
+        with:
+          path: kubernetes-for-azure
+
+      - name: Check out the lab kit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/kubernetes-for-azure-labs
+          ref: main
+          path: kubernetes-for-azure-labs
+
+      - name: HTML pages
+        working-directory: kubernetes-for-azure
+        run: npx --yes html-validate@11.21.1 "**/*.html"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.2
+          terraform_wrapper: false
+
+      - name: Terraform of the hosting
+        working-directory: kubernetes-for-azure
+        run: |
+          terraform fmt -check -recursive infra
+          terraform -chdir=infra init -backend=false -input=false > /dev/null
+          terraform -chdir=infra validate
+
+      - name: Course rules, links, lab sheets, search index and checks against the kit
+        working-directory: kubernetes-for-azure
+        run: python3 scripts/check-course.py
+
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the website
+        uses: actions/checkout@v7
+
+      - name: Collect the pages
+        run: |
+          mkdir _site
+          cp -r ./*.html assets archive chapters solutions sample-app _site/
+
+      - name: Name the account of the lab kit in assets/kit.js
+        env:
+          KIT_OWNER: ${{ github.repository_owner }}
+        run: |
+          if [[ ! "$KIT_OWNER" =~ ^[A-Za-z0-9-]+$ ]]; then
+            echo "Unexpected account name: ${KIT_OWNER}" >&2
+            exit 1
+          fi
+          printf '/* Written by the deployment workflow. Never committed. */\nwindow.COURSE_KIT = { owner: "%s" };\n' "$KIT_OWNER" > _site/assets/kit.js
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: _site
+          output_location: ""
+          skip_app_build: true

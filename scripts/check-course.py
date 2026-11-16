@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Course checks that linters do not cover. Run from anywhere:
+"""Checks of the website that linters do not cover. Run from anywhere:
 
     python3 scripts/check-course.py
 
@@ -8,14 +8,18 @@ Checks:
      no bold, no "eg" in brackets, no filler words, sentence-case headings.
   2. Page template, internal links and anchors (including the navigation in
      assets/course.js), alternative text of images, and platform tabs.
-  3. Every Azure resource in Terraform carries the course and chapter tags, or is
-     marked with a "# untaggable:" comment, and scripts tag what they create.
-  4. No subscription or tenant ID (any GUID except built-in role IDs), public IP
-     address, e-mail address or secret in any file.
-  5. The pinned kind, kubectl and Terraform versions agree across files.
-  6. The search index is up to date.
-  7. The bash and PowerShell versions of each laptop script have the same
-     "# check:" and "# step:" IDs, and PowerShell files are plain ASCII.
+  3. No subscription or tenant ID (any GUID except built-in role IDs), public IP
+     address, e-mail address or secret in any file, and no file of the lab kit,
+     old script path or mention of the former hosting left in the site.
+  4. The Terraform of the hosting (infra/) tags every resource with local.tags,
+     and never with the course tag of the kit.
+  5. The search index and the lab sheets are up to date.
+  6. Cross-checks against a checkout of the lab kit, found through KIT_DIR, or else in
+     the sibling folder kubernetes-for-azure-labs:
+       - the stages of each validator match the tasks of its chapter page, and the page
+         presents --guided, --deep and the broken lab with its --restore option,
+       - every course command that a page shows exists in the kit, with its lab and options,
+       - every data-kit path of a page exists in the kit.
 
 Optional: PRIVATE_TERMS="name one,name two" also searches for terms that must
 never appear in the course. Never write those terms in a file of the course.
@@ -30,12 +34,14 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+KIT = Path(os.environ.get("KIT_DIR") or ROOT.parent / "kubernetes-for-azure-labs").resolve()
 ARCHIVED = ("archive/lessons/", "archive/reference/", "archive/assets/", "archive/tools/")
 # Names the checks leave alone: tool folders, and what Git ignores on the author's machine. These are the local
 # notes, the agent instructions and .claude, where a coding agent keeps its settings and its working copies.
-# .terraform holds the providers that terraform init downloads when the checks run.
-SKIP_NAMES = {".git", "node_modules", "handoff", "CLAUDE.md", "CLAUDE.local.md", ".claude", ".terraform"}
-TEXT_SUFFIXES = {".md", ".html", ".sh", ".ps1", ".psd1", ".tf", ".hcl", ".yaml", ".yml", ".go", ".mod", ".py", ".css", ".js", ".json", ""}
+# .terraform holds the providers that terraform init downloads when the checks run, and _site the pages that
+# the deployment collects.
+SKIP_NAMES = {".git", "node_modules", "handoff", "CLAUDE.md", "CLAUDE.local.md", ".claude", ".terraform", "_site"}
+TEXT_SUFFIXES = {".md", ".html", ".tf", ".hcl", ".yaml", ".yml", ".py", ".css", ".js", ".json", ""}
 PLATFORMS = {"windows", "macos", "linux"}
 
 # IDs of Azure built-in roles: identical in every tenant, so they are not personal data.
@@ -46,21 +52,21 @@ ALLOWED_GUIDS = {
 FILLER_WORDS = ["robust", "seamless", "seamlessly", "tailored", "foster", "fostering", "genuinely", "leverage", "delve", "crucial"]
 PROPER_PHRASES = [
     "Azure Red Hat OpenShift", "Azure Container Registry", "Azure Kubernetes Service", "Azure Bastion",
+    "Azure Static Web Apps", "Static Web Apps", "GitHub Actions",
     "Red Hat", "Microsoft Learn", "Microsoft Entra ID", "Docker Hub", "Docker Engine", "Visual Studio",
     "Developer Sandbox", "Open Container Initiative", "Network Watcher", "Git Bash", "Windows PowerShell",
 ]
 PROPER_WORDS = {
     "Azure", "Kubernetes", "OpenShift", "Docker", "Dockerfile", "Microsoft", "Terraform", "HashiCorp", "Ubuntu", "Go", "Git",
-    "Bash", "PowerShell", "Podman", "Entra", "Linux", "Windows", "macOS", "Mermaid", "AKS", "ARO", "ACR", "Helm",
+    "GitHub", "Bash", "PowerShell", "Podman", "Entra", "Linux", "Windows", "macOS", "AKS", "ARO", "ACR", "Helm",
     "NodePort", "ClusterIP", "LoadBalancer", "ReplicaSet", "ReplicaSets", "Deployment", "Deployments",
     "Service", "Services", "Pod", "Pods", "EndpointSlice", "EndpointSlices", "Namespace", "Namespaces",
 }
-LAPTOP_SCRIPT_PAIRS = [
-    ("chapters/00-lab-setup/lab/setup.sh", "chapters/00-lab-setup/lab/setup.ps1"),
-    ("chapters/00-lab-setup/lab/validate.sh", "chapters/00-lab-setup/lab/validate.ps1"),
-    ("chapters/00-lab-setup/lab/teardown.sh", "chapters/00-lab-setup/lab/teardown.ps1"),
-    ("scripts/lab-vm.sh", "scripts/lab-vm.ps1"),
-]
+# Paths of the course before the lab kit had its own repository. A page shows course commands instead.
+STALE_PATHS = [r"~/aro-k8s-course/", r"\bchapters/\d\d-[a-z0-9-]+/lab/", r"\bscripts[/\\]lab-vm", r"\bchapters\\\d\d-", r"\blab-vm\.(sh|ps1)\b"]
+# Files that belong to the lab kit, never to the website.
+KIT_SUFFIXES = {".sh", ".ps1", ".psd1", ".go", ".mod"}
+FORMER_HOSTING = "GitHub" + " Pages"
 
 errors = []
 
@@ -82,7 +88,7 @@ def iter_files():
     for path in sorted(ROOT.rglob("*")):
         if not path.is_file() or any(part in SKIP_NAMES for part in path.relative_to(ROOT).parts):
             continue
-        if path.suffix in TEXT_SUFFIXES or path.name == "Dockerfile":
+        if path.suffix in TEXT_SUFFIXES or path.suffix in KIT_SUFFIXES or path.name == "Dockerfile":
             yield path
 
 
@@ -92,7 +98,7 @@ def iter_files():
 
 
 class PageParser(HTMLParser):
-    """Collects the prose, headings, links, ids, images and tabs of a page."""
+    """Collects the prose, headings, links, ids, images, tabs, code and kit links of a page."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -104,11 +110,12 @@ class PageParser(HTMLParser):
         self.images = []  # (line, alt)
         self.bold = []  # line numbers
         self.tabs = []  # list of panels: (line, data-os, data-label)
+        self.code = []  # (line, text) of code and pre elements, and of data-ps attributes
+        self.kit_links = []  # (line, tag, data-kit value)
         self.html_lang = None
         self.body = {}
         self.landmarks = []
         self._heading = None
-        self._tab_depth = []
 
     def _in(self, *tags):
         return any(tag in self.stack for tag in tags)
@@ -127,6 +134,10 @@ class PageParser(HTMLParser):
         for attribute in ("href", "src"):
             if attribute in attributes:
                 self.links.append((line, attribute, attributes[attribute]))
+        if "data-kit" in attributes:
+            self.kit_links.append((line, tag, attributes["data-kit"] or ""))
+        if attributes.get("data-ps"):
+            self.code.append((line, attributes["data-ps"]))
         if tag == "img":
             self.images.append((line, attributes.get("alt")))
         if tag in {"strong", "b"}:
@@ -153,6 +164,8 @@ class PageParser(HTMLParser):
         if self._in("script", "style"):
             return
         code = self._in("code", "pre")
+        if code:
+            self.code.append((self.getpos()[0], data))
         if self._heading is not None and not code:
             self._heading[2].append(data)
         if not code and data.strip():
@@ -282,13 +295,7 @@ def check_markdown(path, text):
 # ---------------------------------------------------------------------------
 
 
-def check_dashes(path, text):
-    for number, line in enumerate(text.splitlines(), start=1):
-        if chr(0x2014) in line or chr(0x2013) in line:
-            report(path, number, "em or en dash")
-
-
-def check_personal_data(path, text, private_terms):
+def check_text(path, text, private_terms):
     secret_patterns = [
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
         r"AccountKey=",
@@ -298,13 +305,14 @@ def check_personal_data(path, text, private_terms):
         r"(?i)\bpassword\s*[:=]\s*\S+",
         r"(?i)client_secret\s*[:=]\s*\S+",
     ]
+    archived = is_archived(path)
     for number, line in enumerate(text.splitlines(), start=1):
+        if not archived and (chr(0x2014) in line or chr(0x2013) in line):
+            report(path, number, "em or en dash")
         for guid in re.findall(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", line):
             if guid.lower() not in ALLOWED_GUIDS:
                 report(path, number, "GUID (possible subscription or tenant ID)")
         for candidate in re.findall(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])", line):
-            if "contentVersion" in line:
-                continue
             try:
                 address = ipaddress.ip_address(candidate)
             except ValueError:
@@ -320,94 +328,53 @@ def check_personal_data(path, text, private_terms):
         for term in private_terms:
             if term.lower() in line.lower():
                 report(path, number, "private term from PRIVATE_TERMS")
-
-
-def check_terraform_tags(path, text):
-    """Every resource carries tags = local.tags, or follows a "# untaggable:" comment that says why."""
-    lines = text.splitlines()
-    uses_tags = False
-    for index, line in enumerate(lines):
-        match = re.match(r'^resource\s+"(\w+)"\s+"(\w+)"\s*\{', line)
-        if not match:
+        if archived or path.name == "check-course.py":
             continue
-        block = []
-        for following in lines[index + 1:]:
-            if following.startswith("}"):
-                break
-            block.append(following)
-        has_tags = any(re.match(r"^\s{2}tags\s*=\s*local\.tags\s*$", entry) for entry in block)
-        marked = any("# untaggable:" in previous for previous in lines[max(0, index - 3):index])
-        uses_tags = uses_tags or has_tags
-        if not has_tags and not marked:
-            report(path, index + 1, f"resource {match.group(1)}.{match.group(2)} has no 'tags = local.tags' and no '# untaggable:' comment")
-    if uses_tags:
-        # local.tags may be defined in another file of the same configuration folder.
-        folder = "\n".join(tf.read_text(encoding="utf-8") for tf in sorted(path.parent.glob("*.tf")))
-        if not re.search(r'course\s*=\s*"aro-k8s"', folder) or not re.search(r"chapter\s*=\s*var\.chapter\b", folder):
-            report(path, 1, 'local.tags is not defined with course = "aro-k8s" and chapter = var.chapter in this folder')
+        if FORMER_HOSTING in line:
+            report(path, number, f"mention of {FORMER_HOSTING}: the site is hosted on Azure Static Web Apps")
+        if path.suffix in {".html", ".md", ".js"}:
+            for pattern in STALE_PATHS:
+                if re.search(pattern, line):
+                    report(path, number, f"old script path ({pattern}): show a course command instead")
 
 
-def check_script_tags(path, text):
-    for number, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        if path.suffix == ".sh":
-            create = re.search(r"\baz\s+([a-z-]+(?:\s+[a-z-]+)*)\s+create\b", stripped)
-            # Role assignments and blob containers do not accept tags.
-            untaggable = ("deployment", "role assignment", "storage container-rm")
-            if create and not create.group(1).startswith(untaggable) and "--tags" not in stripped:
-                report(path, number, f"'az {create.group(1)} create' without --tags")
-        elif "'create'" in stripped and "'--tags'" not in stripped and not any(
-            word in stripped for word in ("'deployment'", "'assignment'", "'container-rm'")
-        ):
-            report(path, number, "az create call without '--tags'")
+def check_no_kit_files(files):
+    """The lab kit lives in its own repository: no script, Go code, Dockerfile or Kubernetes file here."""
+    for path in files:
+        name = relative(path)
+        is_yaml = path.suffix in {".yaml", ".yml"} and not name.startswith(".github/")
+        if path.suffix in KIT_SUFFIXES or path.name == "Dockerfile" or is_yaml:
+            errors.append(f"{name}: a file of the lab kit. It belongs in kubernetes-for-azure-labs")
+    if (ROOT / ".nojekyll").exists():
+        errors.append(f".nojekyll: a leftover of {FORMER_HOSTING}")
 
 
-def check_version_pins():
-    lib = (ROOT / "scripts/lib.sh").read_text(encoding="utf-8")
-    lib_ps = (ROOT / "scripts/lib.ps1").read_text(encoding="utf-8")
-    cloud_init = (ROOT / "chapters/00-lab-setup/lab/infra/cloud-init.yaml").read_text(encoding="utf-8")
-    kind_file = (ROOT / "chapters/02-kubernetes-core/lab/kind-cluster.yaml").read_text(encoding="utf-8")
-    pins = {
-        "lib.sh kind": re.search(r'PINNED_KIND_VERSION="([^"]+)"', lib),
-        "lib.ps1 kind": re.search(r"\$PinnedKindVersion = '([^']+)'", lib_ps),
-        "cloud-init kind": re.search(r'KIND_VERSION="([^"]+)"', cloud_init),
-        "lib.sh kubectl": re.search(r'PINNED_KUBECTL_MINOR="([^"]+)"', lib),
-        "lib.ps1 kubectl": re.search(r"\$PinnedKubectlMinor = '([^']+)'", lib_ps),
-        "cloud-init kubectl": re.search(r'KUBECTL_MINOR="([^"]+)"', cloud_init),
-        "lib.sh terraform": re.search(r'PINNED_TERRAFORM_VERSION="([^"]+)"', lib),
-        "lib.ps1 terraform": re.search(r"\$PinnedTerraformVersion = '([^']+)'", lib_ps),
-        "cloud-init terraform": re.search(r'^\s*TERRAFORM_VERSION="([^"]+)"', cloud_init, re.MULTILINE),
-        "lib.sh terraform minimum": re.search(r'TERRAFORM_MIN_VERSION="([^"]+)"', lib),
-        "lib.ps1 terraform minimum": re.search(r"\$TerraformMinVersion = '([^']+)'", lib_ps),
-    }
-    missing = [name for name, match in pins.items() if not match]
-    if missing:
-        errors.append(f"version pins: not found in {missing}")
+def check_hosting_terraform():
+    """Every resource of infra/ carries tags = local.tags, or follows a "# untaggable:" comment, and never the course tag."""
+    files = sorted((ROOT / "infra").glob("*.tf"))
+    if not files:
+        errors.append("infra: no Terraform file for the hosting of the website")
         return
-    kind_versions = {pins[name].group(1) for name in pins if name.endswith("kind")}
-    kubectl_versions = {pins[name].group(1) for name in pins if name.endswith("kubectl")}
-    if len(kind_versions) != 1:
-        errors.append(f"version pins: kind versions differ {sorted(kind_versions)}")
-    if len(kubectl_versions) != 1:
-        errors.append(f"version pins: kubectl versions differ {sorted(kubectl_versions)}")
-    if next(iter(kind_versions)) not in kind_file:
-        errors.append("version pins: kind-cluster.yaml does not mention the pinned kind version")
-    node_versions = set(re.findall(r"kindest/node:(v\d+\.\d+)\.\d+@sha256:[0-9a-f]{64}", kind_file))
-    if node_versions != kubectl_versions:
-        errors.append(f"version pins: kind node images {sorted(node_versions)} do not match kubectl {sorted(kubectl_versions)}")
-    terraform_versions = {pins[name].group(1) for name in pins if name.endswith("terraform")}
-    terraform_minimums = {pins[name].group(1) for name in pins if name.endswith("terraform minimum")}
-    if len(terraform_versions) != 1:
-        errors.append(f"version pins: Terraform versions differ {sorted(terraform_versions)}")
-    if len(terraform_minimums) != 1:
-        errors.append(f"version pins: minimum Terraform versions differ {sorted(terraform_minimums)}")
-    required = set()
-    for versions_file in sorted(ROOT.glob("chapters/*/lab/infra/versions.tf")):
-        required.update(re.findall(r'required_version\s*=\s*">=\s*([0-9.]+)"', versions_file.read_text(encoding="utf-8")))
-    if required != terraform_minimums:
-        errors.append(f"version pins: required_version in versions.tf {sorted(required)} does not match the minimum {sorted(terraform_minimums)}")
+    folder = "\n".join(tf.read_text(encoding="utf-8") for tf in files)
+    if re.search(r'course\s*=\s*"aro-k8s"', folder):
+        errors.append("infra: the hosting must not use the course tag aro-k8s, which the clean-up commands of the kit delete")
+    if not re.search(r"^\s*tags\s*=\s*var\.tags\s*$", folder, re.MULTILINE):
+        errors.append("infra: local.tags is not defined as var.tags")
+    for path in files:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            match = re.match(r'^resource\s+"(\w+)"\s+"(\w+)"\s*\{', line)
+            if not match:
+                continue
+            block = []
+            for following in lines[index + 1:]:
+                if following.startswith("}"):
+                    break
+                block.append(following)
+            has_tags = any(re.match(r"^\s{2}tags\s*=\s*local\.tags\s*$", entry) for entry in block)
+            marked = any("# untaggable:" in previous for previous in lines[max(0, index - 3):index])
+            if not has_tags and not marked:
+                report(path, index + 1, f"resource {match.group(1)}.{match.group(2)} has no 'tags = local.tags' and no '# untaggable:' comment")
 
 
 def check_search_index():
@@ -418,20 +385,6 @@ def check_search_index():
     current = module.OUTPUT.read_text(encoding="utf-8") if module.OUTPUT.exists() else ""
     if current != expected:
         errors.append("assets/search-index.js is out of date: run python3 scripts/build-search-index.py")
-
-
-def check_parity():
-    for bash_file, ps_file in LAPTOP_SCRIPT_PAIRS:
-        ids = []
-        for name in (bash_file, ps_file):
-            text = (ROOT / name).read_text(encoding="utf-8")
-            ids.append(set(re.findall(r"^\s*# (check|step): ([a-z0-9-]+)", text, re.MULTILINE)))
-        if ids[0] != ids[1]:
-            only_bash = sorted(f"{kind}: {name}" for kind, name in ids[0] - ids[1])
-            only_ps = sorted(f"{kind}: {name}" for kind, name in ids[1] - ids[0])
-            errors.append(f"parity: {bash_file} and {ps_file} differ. Only in bash: {only_bash}. Only in PowerShell: {only_ps}")
-        elif not ids[0]:
-            errors.append(f"parity: {bash_file} has no check or step IDs")
 
 
 def check_lab_sheets():
@@ -447,30 +400,6 @@ def check_lab_sheets():
             errors.append(f"{relative(page)} does not link to its lab sheet")
 
 
-def check_break_scripts():
-    """A broken lab script has a symptom, an injection and an explanation for each fault, and its page presents it."""
-    for script in sorted(ROOT.glob("chapters/*/lab/break.sh")):
-        text = script.read_text(encoding="utf-8")
-        name = relative(script)
-        scenarios = re.search(r"^SCENARIOS=\((.*?)\)", text, re.M)
-        names = scenarios.group(1).split() if scenarios else []
-        if not names:
-            errors.append(f"broken lab: {name} defines no SCENARIOS")
-        for scenario in names:
-            for prefix in ("symptom", "inject", "explain"):
-                if not re.search(rf"^{prefix}_{scenario}\(\) {{", text, re.M):
-                    errors.append(f"broken lab: {name} has no function {prefix}_{scenario}")
-        causes = re.search(r"^CAUSES=\(\n(.*?)^\)", text, re.S | re.M)
-        if not causes or len(re.findall(r'^\s+"', causes.group(1), re.M)) <= len(names):
-            errors.append(f"broken lab: {name} needs one cause per fault, plus at least one that is never the answer")
-        for function in ("lab_is_finished", "restore_lab"):
-            if not re.search(rf"^{function}\(\) {{", text, re.M):
-                errors.append(f"broken lab: {name} has no function {function}")
-        page = script.parent.parent / "index.html"
-        if "break.sh --restore" not in page.read_text(encoding="utf-8"):
-            errors.append(f"broken lab: {relative(page)} does not present break.sh and its --restore option")
-
-
 def check_leftovers():
     """The course is HTML only: one Markdown file, the README, and diagrams as PNG exports."""
     for path in sorted(ROOT.rglob("*.md")):
@@ -482,32 +411,110 @@ def check_leftovers():
             errors.append(f"{relative(path)}: only PNG exports belong in assets/diagrams")
 
 
-def check_validator_stages():
-    """A staged validator has one check function and one task text per stage, and the chapter page lists one task per stage."""
-    for script in sorted(ROOT.glob("chapters/*/lab/validate.sh")):
-        text = script.read_text(encoding="utf-8")
-        if "lib-validate.sh" not in text:
+# ---------------------------------------------------------------------------
+# Cross-checks against the lab kit
+# ---------------------------------------------------------------------------
+
+
+class Kit:
+    """What the pages need to know about the lab kit."""
+
+    def __init__(self, root):
+        self.root = root
+        course = (root / "course").read_text(encoding="utf-8")
+        course_ps = (root / "course.ps1").read_text(encoding="utf-8")
+        self.commands = {}
+        for side in ("LAPTOP", "VM"):
+            match = re.search(rf'^{side}_COMMANDS="([a-z ]+)"$', course, re.MULTILINE)
+            self.commands[side] = set(match.group(1).split()) if match else set()
+        accepted = re.search(r"\[ValidateSet\(([^)]*)\)\]", course_ps)
+        self.ps_commands = set(re.findall(r"'([a-z]+)'", accepted.group(1))) & self.commands["LAPTOP"] if accepted else set()
+        self.ps_switches = {name.lower() for name in re.findall(r"\[switch\]\$(\w+)", course_ps)}
+        scripts = [course] + [path.read_text(encoding="utf-8") for path in sorted(root.glob("lib/*.sh")) + sorted(root.glob("labs/*/*.sh"))]
+        self.options = set()
+        for text in scripts:
+            self.options.update(re.findall(r"^\s*(?:[a-z|* -]*\| )?(--[a-z][a-z-]*)(?:=\*)?(?: \|[^)]*)?\)", text, re.MULTILINE))
+        self.labs = {path.name[:2]: path for path in sorted(root.glob("labs/*")) if path.is_dir()}
+        self.solutions = {path.name[:2] for path in sorted(root.glob("solutions/*")) if path.is_dir()}
+
+
+def load_kit():
+    if not (KIT / "course").is_file():
+        errors.append(f"lab kit not found at {KIT}: clone kubernetes-for-azure-labs next to this folder, or set KIT_DIR")
+        return None
+    return Kit(KIT)
+
+
+# A course command starts a line of code, or follows ;, &, | or (. "shellcheck -x course setup/*.sh" is not one.
+COMMAND = re.compile(r"(?:^|[;&|(])[ \t]*(\./course|\.\\course\.ps1|course)[ \t]+([a-z]+)((?:[ \t]+(?:\d{2}|NN|-{1,2}[A-Za-z][A-Za-z-]*|N|\d))*)", re.MULTILINE)
+
+
+def check_course_commands(path, page, kit):
+    """Every course command shown on a page exists in the kit, with its lab and its options."""
+    for line, text in page.code:
+        for match in COMMAND.finditer(text):
+            form, command, rest = match.group(1), match.group(2), match.group(3).split()
+            shown = match.group(0).strip()
+            if form == ".\\course.ps1":
+                if command not in kit.ps_commands:
+                    report(path, line, f"'{shown}': course.ps1 has no command {command}")
+                for option in (word for word in rest if word.startswith("-")):
+                    if option.lstrip("-").lower() not in kit.ps_switches:
+                        report(path, line, f"'{shown}': course.ps1 has no parameter {option}")
+                continue
+            sides = kit.commands["LAPTOP"] if form == "./course" else kit.commands["LAPTOP"] | kit.commands["VM"]
+            if command not in sides:
+                report(path, line, f"'{shown}': the course command of the kit has no command {command}")
+                continue
+            for option in (word for word in rest if word.startswith("--")):
+                if option not in kit.options:
+                    report(path, line, f"'{shown}': the kit has no option {option}")
+            numbers = [word for word in rest if re.fullmatch(r"\d{2}", word)]
+            if command in {"start", "check", "break", "clean", "solution"} and numbers and form == "course":
+                lab = numbers[0]
+                if lab not in kit.labs:
+                    report(path, line, f"'{shown}': the kit has no lab {lab}")
+                elif command == "break" and not (kit.labs[lab] / "break.sh").is_file():
+                    report(path, line, f"'{shown}': lab {lab} of the kit has no broken lab")
+                elif command == "solution" and lab not in kit.solutions:
+                    report(path, line, f"'{shown}': the kit has no reference solution for lab {lab}")
+
+
+def check_kit_links(path, page, kit):
+    for line, tag, value in page.kit_links:
+        if tag != "a":
+            report(path, line, f"data-kit on a {tag} element: use it on links only")
+        target = (kit.root / value).resolve() if value not in {"", "."} else kit.root
+        if not target.exists():
+            report(path, line, f"data-kit path not found in the lab kit: {value}")
+        elif value.endswith("/") != target.is_dir() and value not in {"", "."}:
+            report(path, line, f"data-kit path {value}: end a folder with a slash, and a file without one")
+
+
+def check_lab_pages(kit):
+    """Each lab of the kit has a chapter page whose tasks match its validator stages."""
+    pages = {path.parent.name: path for path in sorted(ROOT.glob("chapters/*/index.html"))}
+    for number, lab in sorted(kit.labs.items()):
+        page = pages.get(lab.name)
+        if not page:
+            errors.append(f"lab {lab.name} of the kit has no page chapters/{lab.name}/index.html")
             continue
-        name = relative(script)
-        titles = re.search(r"^STAGE_TITLES=\(\n(.*?)^\)", text, re.S | re.M)
+        text = page.read_text(encoding="utf-8")
+        validator = (lab / "validate.sh").read_text(encoding="utf-8") if (lab / "validate.sh").is_file() else ""
+        titles = re.search(r"^STAGE_TITLES=\(\n(.*?)^\)", validator, re.S | re.M)
         count = len(re.findall(r'^\s+"', titles.group(1), re.M)) if titles else 0
-        if count == 0:
-            errors.append(f"stages: {name} defines no STAGE_TITLES")
-            continue
-        for number in range(1, count + 1):
-            for function in (f"stage_{number}", f"stage_{number}_task"):
-                if not re.search(rf"^{function}\(\) {{", text, re.M):
-                    errors.append(f"stages: {name} has no function {function}")
-        if re.search(rf"^stage_{count + 1}\(\) {{", text, re.M):
-            errors.append(f"stages: {name} has more stage functions than titles")
-        page = script.parent.parent / "index.html"
-        tasks = re.search(r'<h3 id="tasks">.*?<ol>(.*?)</ol>', page.read_text(encoding="utf-8"), re.S)
+        tasks = re.search(r'<h3 id="tasks">.*?<ol>(.*?)</ol>', text, re.S)
         listed = len(re.findall(r"<li>", tasks.group(1))) if tasks else 0
-        if listed != count:
-            errors.append(f"stages: {name} has {count} stages and {relative(page)} lists {listed} tasks")
+        if count != listed:
+            errors.append(f"stages: the kit's labs/{lab.name}/validate.sh has {count} stages and {relative(page)} lists {listed} tasks")
         for option in ("--guided", "--deep"):
-            if option not in page.read_text(encoding="utf-8"):
+            if option not in text:
                 errors.append(f"stages: {relative(page)} does not mention {option}")
+        if (lab / "break.sh").is_file() and f"course break {number} --restore" not in text:
+            errors.append(f"broken lab: {relative(page)} does not present course break {number} and its --restore option")
+    for name, page in pages.items():
+        if name[:2] not in kit.labs:
+            errors.append(f"{relative(page)}: the kit has no folder labs/{name}")
 
 
 def main():
@@ -522,33 +529,32 @@ def main():
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        check_personal_data(path, text, private_terms)
+        check_text(path, text, private_terms)
         if is_archived(path):
             continue
-        check_dashes(path, text)
         if path.suffix == ".html":
             check_html(path.resolve(), pages)
         if path.suffix == ".md":
             check_markdown(path, text)
-        if path.suffix == ".tf":
-            check_terraform_tags(path, text)
-        if path.suffix in {".sh", ".ps1"}:
-            check_script_tags(path, text)
-        if path.suffix in {".ps1", ".psd1"} and not text.isascii():
-            # Windows PowerShell 5.1 reads files without a byte order mark as ANSI, not UTF-8.
-            report(path, 1, "non-ASCII character in a PowerShell file")
+    check_no_kit_files(files)
     check_nav_links(pages)
-    check_version_pins()
+    check_hosting_terraform()
     check_search_index()
-    check_parity()
-    check_validator_stages()
     check_lab_sheets()
-    check_break_scripts()
     check_leftovers()
+
+    kit = load_kit()
+    if kit:
+        for path, page in sorted(pages.items()):
+            if page is not None and not is_archived(path):
+                check_course_commands(path, page, kit)
+                check_kit_links(path, page, kit)
+        check_lab_pages(kit)
 
     for error in errors:
         print(f"[FAIL] {error}")
-    print(f"\nChecked {len(files)} files ({len([p for p in files if p.suffix == '.html' and not is_archived(p)])} pages), {len(errors)} errors"
+    print(f"\nChecked {len(files)} files ({len([p for p in files if p.suffix == '.html' and not is_archived(p)])} pages) "
+          f"against the lab kit in {KIT}, {len(errors)} errors"
           + (f", with {len(private_terms)} private terms" if private_terms else ", without PRIVATE_TERMS") + ".")
     return 1 if errors else 0
 

@@ -29,7 +29,7 @@
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
 <li>Chapter 1 done. The image <code>sample-app:1.0.0</code> and your <code>Dockerfile</code> are still on the lab VM. The chapter 1 registry can already be deleted, this chapter does not use it.</li>
-<li>The lab VM started (<code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>) and an SSH session open on it (<code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>), from the course folder on your own computer.</li>
+<li>The lab VM started (<code data-ps=".\course.ps1 up">./course up</code>) and an SSH session open on it (<code data-ps=".\course.ps1 connect">./course connect</code>), from the kit folder on your own computer.</li>
 </ul>
 <h3 id="time-needed">Time needed</h3>
 <p>About 3 hours: 75 minutes of reading and 105 minutes for the lab.</p>
@@ -80,7 +80,7 @@
 <li>Imperative commands say what to do now: <code>kubectl create deployment</code>, <code>kubectl scale</code>, <code>kubectl delete</code>. They are quick, but leave no record of the intended state.</li>
 <li>Declarative configuration says what should exist: you write YAML files that describe objects, and <code>kubectl apply -f &lt;file or folder&gt;</code> makes the cluster match them. Running it again changes nothing if nothing changed. The files can live in Git, be reviewed and be applied again on another cluster.</li>
 </ul>
-<p>This course works declaratively, the same way the Terraform files of chapter 0 describe Azure resources.</p>
+<p>This course works declaratively, the same way the Terraform files of the <a href="../../setup.html#infrastructure-as-code">setup</a> describe Azure resources.</p>
 <p><code>kubectl diff -f &lt;file or folder&gt;</code> compares your files with the cluster and prints what <code>kubectl apply</code> would change, without changing anything. When it prints nothing, the files describe exactly what runs. <a href="https://kubernetes.io/docs/reference/kubectl/generated/kubectl_diff/">kubectl diff</a></p>
 <p>Every Kubernetes object in YAML has the same four top-level fields:</p>
 <table>
@@ -187,7 +187,7 @@
 <p>The version changes with every release, but the selector of a Deployment cannot change after creation. A new version would need a new Deployment. Select on a label that stays the same, such as the app name, and use the version label for information only.</p>
 </details>
 <h3 id="the-kubectl-commands-you-need">The kubectl commands you need</h3>
-<p><code>kubectl</code> talks to the API server of the cluster named in its current context. Chapter 2 setup sets the context to <code>kind-aro-k8s</code>. <a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a></p>
+<p><code>kubectl</code> talks to the API server of the cluster named in its current context. <code>course start 02</code> sets the context to <code>kind-aro-k8s</code>. <a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a></p>
 <table>
 <thead>
 <tr>
@@ -374,7 +374,7 @@
 </ol>
 <p>Stretch goal: add a readiness probe on <code>/healthz</code> to the container, so that a pod only receives traffic once the app answers.</p>
 <h3 id="acceptance-criteria">Acceptance criteria</h3>
-<p><code>validate.sh</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning. The cluster itself is checked first: 3 ready nodes, 1 control plane and 2 workers.</p>
+<p><code>course check 02</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning. The cluster itself is checked first: 3 ready nodes, 1 control plane and 2 workers.</p>
 <p>Stage 1, the namespace:</p>
 <ul>
 <li>The files in <code>~/work/02-kubernetes-core</code> are valid YAML and describe a Namespace called <code>sample-app</code>.</li>
@@ -433,50 +433,50 @@
 <p>In your SSH session on the lab VM:</p>
 <p class="where">On the lab VM (bash)</p>
 <pre><code class="language-bash"># 1. Setup: creates the kind cluster and loads sample-app:1.0.0
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/setup.sh
+course start 02
 
 # 2. Do the tasks. The guided check follows you: task, check, hints
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --guided
+course check 02 --guided
 
 # 3. Full report at the end. It changes nothing
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+course check 02
 
 # 4. Optional: the full report with the live tests
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh --deep
+course check 02 --deep
 
-# 5. Teardown, once the report passes: deletes the kind cluster
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/teardown.sh
+# 5. Clean up, once the report passes: deletes the kind cluster
+course clean 02
 </code></pre>
-<p>Setup creates the cluster from <a href="lab/kind-cluster.yaml">lab/kind-cluster.yaml</a>, which pins the Kubernetes version, waits for the nodes and loads <code>sample-app:1.0.0</code> into them. Creating the cluster takes 1 to 3 minutes.</p>
-<p>If the lab VM was stopped and started again, check the cluster with <code>kubectl get nodes</code> after you reconnect. Whether a kind cluster comes back after a reboot of its machine depends on Docker restarting the node containers (not verified for this version of kind). If the nodes are not Ready after a few minutes, delete the cluster with <code>teardown.sh</code>, run <code>setup.sh</code> again and apply your files again.</p>
-<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/02-kubernetes-core/index.html">reference solution</a>.</p>
+<p><code>course start 02</code> creates the cluster from <a data-kit="labs/02-kubernetes-core/kind-cluster.yaml">labs/02-kubernetes-core/kind-cluster.yaml</a> in the kit, which pins the Kubernetes version, waits for the nodes and loads <code>sample-app:1.0.0</code> into them. Creating the cluster takes 1 to 3 minutes.</p>
+<p>If the lab VM was stopped and started again, check the cluster with <code>kubectl get nodes</code> after you reconnect. Whether a kind cluster comes back after a reboot of its machine depends on Docker restarting the node containers (not verified for this version of kind). If the nodes are not Ready after a few minutes, delete the cluster with <code>course clean 02</code>, run <code>course start 02</code> again and apply your files again.</p>
+<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/02-kubernetes-core/index.html">reference solution</a>. <code>course solution 02</code> copies its files into your work folder after asking, and keeps your own files aside.</p>
 <h3 id="how-the-validation-works">How the validation works</h3>
-<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
+<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\course.ps1 connect">./course connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
 <p>Stage 5 is the exception. Nothing in the cluster shows afterwards that you deleted a pod, so the guided check notes the pod names when the stage opens and looks for a replaced pod when you press Enter. Keep it open while you delete the pod. In a full report this check is left out, unless <code>--deep</code> lets the validator delete a pod itself.</p>
-<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a check that was left out. The exit code is 0 when no check fails. <code>validate.sh --stage 3</code> reports on one stage only.</p>
+<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a check that was left out. The exit code is 0 when no check fails. <code>course check 02 --stage 3</code> reports on one stage only.</p>
 <p>The report and the guided check are read-only: they read your YAML files and the cluster, and send <code>GET</code> requests to the app. Only <code>--deep</code> changes something. It deletes one pod of your Deployment, which the ReplicaSet replaces, and runs a temporary <code>busybox</code> pod, which it removes. That pod needs the nodes to reach Docker Hub. When they cannot, the test ends with a warning. The live tests never touch your files or your Azure resources.</p>
 <h3 id="break-it-and-fix-it">Break it and fix it</h3>
-<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>break.sh</code> changes one object of your namespace with a <code>kubectl</code> command, the way a hurried colleague would. There are four faults, and tells you only what a user would report.</p>
+<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>course break 02</code> changes one object of your namespace with a <code>kubectl</code> command, the way a hurried colleague would. There are four faults, and the script tells you only what a user would report.</p>
 <p class="where">On the lab VM (bash)</p>
 <pre><code class="language-bash"># 1. Inject one fault, after a confirmation
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh
+course break 02
 
 # 2. Investigate, then say what the cause is
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --diagnose
+course break 02 --diagnose
 
 # 3. Repair it, then confirm
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/validate.sh
+course check 02
 
 # Or give up and put the lab back as it was
-~/aro-k8s-course/chapters/02-kubernetes-core/lab/break.sh --restore
+course break 02 --restore
 </code></pre>
-<p>Investigate with <code>kubectl get</code>, <code>kubectl describe</code>, <code>kubectl logs</code> and <code>kubectl diff</code>. Do not run <code>validate.sh</code> before you have a diagnosis, because its report names the fault. Each run of <code>break.sh</code> injects another fault, until you have seen them all. The script never touches your YAML files or Azure, so your files always describe the lab as it was. Do this before teardown, which deletes the cluster.</p>
+<p>Investigate with <code>kubectl get</code>, <code>kubectl describe</code>, <code>kubectl logs</code> and <code>kubectl diff</code>. Do not run <code>course check 02</code> before you have a diagnosis, because its report names the fault. Each run of <code>course break 02</code> injects another fault, until you have seen them all. The script never touches your YAML files or Azure, so your files always describe the lab as it was. Do this before <code>course clean 02</code>, which deletes the cluster.</p>
 <h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
 <ul>
-<li>Run <code>teardown.sh</code> on the lab VM once the full report passes. It deletes the kind cluster and lists what is still tagged <code>course=aro-k8s</code> in Azure. Your YAML files and your images stay on the VM.</li>
-<li>From your own computer, deallocate the VM: <code data-ps=".\scripts\lab-vm.ps1 stop">scripts/lab-vm.sh stop</code>.</li>
+<li>Run <code>course clean 02</code> on the lab VM once the full report passes. It deletes the kind cluster and lists what is still tagged <code>course=aro-k8s</code> in Azure. Your YAML files and your images stay on the VM.</li>
+<li>From your own computer, deallocate the VM: <code data-ps=".\course.ps1 stop">./course stop</code>.</li>
 <li>This chapter adds no Azure resource, so Cost analysis only shows the lab VM, its disk and its IP address.</li>
-<li>If you take a long break before chapter 3, destroy the lab with <code data-ps=".\chapters\00-lab-setup\lab\teardown.ps1 destroy">chapters/00-lab-setup/lab/teardown.sh destroy</code> and recreate it later with setup. You then rebuild the images from your Dockerfile.</li>
+<li>If you take a long break before chapter 3, destroy the lab with <code data-ps=".\course.ps1 destroy">./course destroy</code> and recreate it later with <code data-ps=".\course.ps1 up">./course up</code>. You then rebuild the images from your Dockerfile.</li>
 </ul>
 <h2 id="sources">Sources</h2>
 <p>Prices: <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, queried on 13 November 2026 with <code>armSkuName eq 'Standard_D2as_v5' and armRegionName eq 'swedencentral'</code>, currency EUR.</p>

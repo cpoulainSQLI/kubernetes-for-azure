@@ -16,14 +16,14 @@
 <main id="main" class="content">
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="../../solutions/index.html">Reference solutions</a></nav>
 <h1 id="chapter-1-reference-solution">Chapter 1 reference solution</h1>
-<p>Try the lab on your own first. Come here when you are stuck for more than 20 minutes, or after <code>validate.sh</code> passes, to compare approaches.</p>
+<p>Try the lab on your own first. Come here when you are stuck for more than 20 minutes, or after <code>course check 01</code> passes, to compare approaches.</p>
 <p>There is more than one correct solution. A Dockerfile that uses another small base image, such as a distroless image, is just as valid if the validation passes.</p>
 <h2 id="files">Files</h2>
 <ul>
-<li><a href="Dockerfile">Dockerfile</a> is a two-stage build: a Go toolchain image compiles the app, then an empty <code>scratch</code> image receives only the binary.</li>
+<li><a data-kit="solutions/01-containers/sample-app/Dockerfile">Dockerfile</a>, in the kit, is a two-stage build: a Go toolchain image compiles the app, then an empty <code>scratch</code> image receives only the binary.</li>
 </ul>
 <h2 id="commands-in-order">Commands, in order</h2>
-<p>Run them on the lab VM, in <code>~/work/01-containers/sample-app</code>, after copying the Dockerfile there.</p>
+<p>Run them on the lab VM, in <code>~/work/01-containers/sample-app</code>, after copying the Dockerfile there, by hand or with <code>course solution 01</code>.</p>
 <p class="where">On the lab VM (bash)</p>
 
 <pre><code class="language-bash"># Build and tag the image, passing the version to the build.

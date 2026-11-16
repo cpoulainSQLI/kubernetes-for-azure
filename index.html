@@ -19,11 +19,13 @@
 <p>From zero containers to an Azure Red Hat OpenShift (ARO) cluster. Every chapter ends with a lab that you run on your own Azure subscription, and a script that checks your work, stage by stage, and tells you what to fix.</p>
 </div>
 
-<p>The course is written for people who know basic Azure (the portal, subscriptions, resource groups, <code>az login</code>, virtual networks at a high level) and have never used containers or Kubernetes. <a href="about.html">About this course</a> describes the goal, the learner profile and what you will be able to do after each part.</p>
+<p>The course is written for people who know basic Azure (the portal, subscriptions, resource groups, <code>az login</code>, virtual networks at a high level) and have never used containers or Kubernetes. <a href="introduction.html">Start with the Introduction</a>: it explains how the course works and what it costs, before the <a href="setup.html">setup</a>.</p>
+<p class="callout">Cost: about 1.50 EUR for the setup and chapters 1 and 2, and 8 to 9 EUR per three-hour ARO session in chapters 8 and 9 (chapters 3 to 7 are not priced yet). <a href="introduction.html#costs">What the course costs and how to keep it low</a>.</p>
 
 <h2 id="outline">Outline</h2>
 <ul class="cards">
-<li class="card"><span class="card-part">Part 1, foundations</span><a href="chapters/00-lab-setup/index.html">0. Lab setup</a><p>Subscription, budget alerts, lab VM built from code, readiness report.</p><span class="status available">Available</span></li>
+<li class="card"><span class="card-part">Start here</span><a href="introduction.html">Introduction</a><p>What the course builds, the website and the lab kit, how a lab works, costs and cost habits.</p><span class="status available">Available</span></li>
+<li class="card"><span class="card-part">Start here</span><a href="setup.html">Setup</a><p>Tools, the lab kit, your settings, the lab VM built from code, the readiness report.</p><span class="status available">Available</span></li>
 <li class="card"><span class="card-part">Part 1, foundations</span><a href="chapters/01-containers/index.html">1. Containers</a><p>Images, layers, registries, running containers, non-root images.</p><span class="status available">Available</span></li>
 <li class="card"><span class="card-part">Part 1, foundations</span><a href="chapters/02-kubernetes-core/index.html">2. Kubernetes core</a><p>Pods, Deployments, Services, namespaces, labels, declarative YAML, rollouts.</p><span class="status available">Available</span></li>
 <li class="card planned"><span class="card-part">Part 2, Kubernetes in practice</span><span>3. Configuration, storage and exposure</span><p>ConfigMaps, Secrets, volumes, exposing an app outside the cluster.</p><span class="status planned">Planned</span></li>
@@ -35,74 +37,6 @@
 <li class="card planned"><span class="card-part">Part 4, Azure Red Hat OpenShift</span><span>9. Operating ARO</span><p>Access, monitoring, upgrades and scaling.</p><span class="status planned">Planned</span></li>
 <li class="card planned"><span class="card-part">Part 4, Azure Red Hat OpenShift</span><span>10. ARO compared with AKS</span><p>A design note on readiness for a large enterprise workload, without installation.</p><span class="status planned">Planned</span></li>
 </ul>
-
-<h2 id="how-the-labs-work">How the labs work</h2>
-<p>You work on a small Linux VM in your own Azure subscription, created in chapter 0. Your own computer only needs the Azure CLI and an SSH client: the scripts that run there exist for PowerShell on Windows and for bash on macOS and Linux. Everything else (Docker, kind, kubectl, the Azure CLI on Linux) is installed on the lab VM, the way a platform team works from a shared jump host.</p>
-<p>Use the picker at the top of every page to choose your computer. Command blocks that differ between platforms then show the right variant, and the choice is remembered from page to page. Commands that run on the lab VM are always bash and are labelled as such.</p>
-<p>Every lab has the same four parts:</p>
-<ol>
-<li>A setup script that prepares what the lab needs.</li>
-<li>Tasks written as goals with acceptance criteria. The chapter never gives you a solution to copy and paste.</li>
-<li>A validation script that reads your files and the state of your work, and prints <code>[PASS]</code>, <code>[FAIL]</code> or <code>[WARN]</code> for each criterion, with a hint for each failure. From chapter 1 onwards it also has a guided mode, which follows you task by task, and an optional deep mode, which adds live tests. Without that option it never changes anything.</li>
-<li>A teardown script that removes what the lab created and lists anything still tagged for the course.</li>
-</ol>
-<p>From chapter 1 onwards, each task has two hints that you open when you need them, and a broken lab follows the lab: a script puts one fault into your finished work, and you find and repair it. Each chapter also has a lab sheet, which is the lab alone on one page.</p>
-<p>Reference solutions are in <a href="solutions/index.html">Reference solutions</a>. Look at them after you have tried, not before.</p>
-
-<h2 id="cost-policy">Cost: know it before you start</h2>
-<p>Everything in this course runs on Azure resources that you pay for, from a credit or from your card. Read this section before chapter 0. The amounts are for Sweden Central in November 2026, from the public price list. Each setup script looks the prices up again for your region and currency, and prints them before it creates anything.</p>
-<table>
-<thead><tr><th>Part of the course</th><th>What costs money</th><th>Estimate</th></tr></thead>
-<tbody>
-<tr><td>Chapters 0 to 2</td><td>The lab VM while it runs, its disk and its IP address while they exist, a container registry for one day, and a few kilobytes of Terraform state in a storage account</td><td>About 1.50 EUR over three days if you destroy the lab VM afterwards. About 13 EUR a month if you keep it and use it 2 hours a day</td></tr>
-<tr><td>Chapters 3 to 7</td><td>Not written yet. Each chapter will state its cost before its lab</td><td>Not priced yet</td></tr>
-<tr><td>Chapters 8 and 9, ARO</td><td>A cluster of six VMs, with their disks and the OpenShift licence of the workers, for as long as it exists. That includes the 45 minutes it takes to create</td><td>Roughly 2.5 to 3 EUR per hour, so 8 to 9 EUR for a three-hour session. This is an estimate from the price list, not yet measured</td></tr>
-</tbody>
-</table>
-<p>ARO is by far the most expensive part. It also needs a quota of 44 vCPUs, which many subscriptions do not have by default. Check both early: the readiness report of chapter 0 tells you where you stand, and <a href="azure-limits.html">Quotas, regions and resource providers</a> explains what to ask for. <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, <a href="https://learn.microsoft.com/azure/openshift/openshift-service-definitions">how ARO is billed</a>, <a href="https://learn.microsoft.com/azure/openshift/create-cluster">create an ARO cluster</a></p>
-<h3 id="what-the-course-does-for-you">What the course does for you</h3>
-<p>The course is designed for a subscription with a monthly credit of about 130 EUR and the spending limit on. With the spending limit on, Azure disables the subscription for the rest of the billing period when the credit runs out, and stops its virtual machines. These guardrails exist so that this never happens to you by accident.</p>
-<ul>
-<li>The spending limit stays on.</li>
-<li>Chapter 0 creates a monthly budget with alerts at 50%, 80% and 100% of actual cost, and at 100% of forecast cost.</li>
-<li>The lab VM shuts down automatically every evening.</li>
-<li>Every lab has a teardown script, and every teardown lists what is still tagged for the course.</li>
-<li>Nothing runs overnight unless a chapter says so.</li>
-<li>ARO only appears in chapters 8 and 9, as short labs that create and delete a cluster in the same session.</li>
-</ul>
-<h3 id="what-you-do">What you do</h3>
-<ul>
-<li>Read the estimate that each setup script prints, and answer no if it surprises you.</li>
-<li>Stop the lab VM at the end of every session, with the script of chapter 0. A VM that you only shut down from the inside still costs money, and chapter 0 explains why.</li>
-<li>Run the teardown script at the end of each chapter. A registry or a cluster costs money while it exists, whether you use it or not.</li>
-<li>The next day, open Cost analysis in the portal and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day.</li>
-<li>Take a budget alert seriously. It warns you, and it stops nothing.</li>
-</ul>
-<p>Each chapter states its estimated cost in its "Before you start" section, with the source and date of the prices.</p>
-
-<h2 id="getting-started">Getting started</h2>
-<ol>
-<li>Get the course folder on your computer: download the repository that hosts this site as a zip file and extract it, or clone it with Git.</li>
-<li>Read <a href="chapters/00-lab-setup/index.html">chapter 0</a>. It lists what to install on your computer and walks you through the lab setup.</li>
-<li>Copy <code>.env.example</code> to <code>.env</code> in the course folder and fill it in. <code>.env</code> holds your settings (prefix, region, budget, your public IP address). It holds nothing secret and is never committed.</li>
-<li>Follow the chapters in order. Each chapter builds on the previous one.</li>
-</ol>
-
-<h2 id="course-folder">What is in the course folder</h2>
-<table>
-<thead><tr><th>Path</th><th>Content</th></tr></thead>
-<tbody>
-<tr><td><code>index.html</code>, <code>about.html</code>, <code>resources.html</code>, <code>azure-limits.html</code></td><td>This site: home, goal and learner profile, primary sources, Azure limits</td></tr>
-<tr><td><code>chapters/NN-name/index.html</code></td><td>One page per chapter, with its knowledge check and its lab. <code>lab-sheet.html</code> next to it is the lab alone</td></tr>
-<tr><td><code>chapters/NN-name/lab/</code></td><td>The lab scripts of the chapter, and its Terraform or YAML files</td></tr>
-<tr><td><code>scripts/</code></td><td>Shared helpers for bash and PowerShell, the lab VM helper, the course checks</td></tr>
-<tr><td><code>sample-app/</code></td><td>The small web application used in every chapter</td></tr>
-<tr><td><code>solutions/</code></td><td>Reference solutions, by chapter</td></tr>
-<tr><td><code>assets/</code></td><td>Style sheet, script, search index and diagrams of this site</td></tr>
-<tr><td><code>.env.example</code></td><td>Template for your settings</td></tr>
-<tr><td><code>archive/</code></td><td>Earlier draft material kept unchanged, to be reworked for chapter 7</td></tr>
-</tbody>
-</table>
 <p>Contributors start with the <a href="style-guide.html">style guide</a>.</p>
 </main>
 <aside class="page-toc" id="page-toc" aria-label="On this page"></aside>

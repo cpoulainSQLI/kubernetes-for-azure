@@ -16,15 +16,15 @@
 <main id="main" class="content">
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="../../solutions/index.html">Reference solutions</a></nav>
 <h1 id="chapter-2-reference-solution">Chapter 2 reference solution</h1>
-<p>Try the lab on your own first. Come here when you are stuck for more than 20 minutes, or after <code>validate.sh</code> passes, to compare approaches.</p>
+<p>Try the lab on your own first. Come here when you are stuck for more than 20 minutes, or after <code>course check 02</code> passes, to compare approaches.</p>
 <h2 id="files">Files</h2>
 <ul>
-<li><a href="namespace.yaml">namespace.yaml</a> creates the <code>sample-app</code> namespace.</li>
-<li><a href="deployment.yaml">deployment.yaml</a> shows the final state: 5 replicas of version 1.0.0, with a readiness probe as the stretch goal.</li>
-<li><a href="service.yaml">service.yaml</a> exposes the pods on port 80 inside the cluster and on node port 30080.</li>
+<li><a data-kit="solutions/02-kubernetes-core/namespace.yaml">namespace.yaml</a> creates the <code>sample-app</code> namespace.</li>
+<li><a data-kit="solutions/02-kubernetes-core/deployment.yaml">deployment.yaml</a> shows the final state: 5 replicas of version 1.0.0, with a readiness probe as the stretch goal.</li>
+<li><a data-kit="solutions/02-kubernetes-core/service.yaml">service.yaml</a> exposes the pods on port 80 inside the cluster and on node port 30080.</li>
 </ul>
 <h2 id="commands-in-order">Commands, in order</h2>
-<p>Run them on the lab VM, in <code>~/work/02-kubernetes-core</code>, after chapter 2 setup.</p>
+<p>Run them on the lab VM, in <code>~/work/02-kubernetes-core</code>, after <code>course start 02</code>. The files are in the kit: copy them there by hand, or with <code>course solution 02</code>.</p>
 <p class="where">On the lab VM (bash)</p>
 
 <pre><code class="language-bash"># 1. Namespace, then the Deployment with 3 replicas (edit replicas: 3 in the file first).

@@ -16,7 +16,7 @@
 <main id="main" class="content">
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
 <h1 id="quotas-regions-and-resource-providers">Quotas, regions and resource providers</h1>
-<p class="lede">Three limits of an Azure subscription that the readiness report of chapter 0 checks. None of them stops you before chapter 6. Read this page when the report prints a warning about them, or before you create a cluster in Azure.</p>
+<p class="lede">Three limits of an Azure subscription that the readiness report of the <a href="setup.html">setup</a>, <code data-ps=".\course.ps1 check">./course check</code>, checks. None of them stops you before chapter 6. Read this page when the report prints a warning about them, or before you create a cluster in Azure.</p>
 <h2 id="vcpu-quotas">vCPU quotas</h2>
 <p>Azure limits how many vCPUs (virtual processors) you can run, at two levels in each region: a total for the region, and a limit per VM family, such as the DASv5 family of the lab VM. A deployment fails if it would exceed either one. <a href="https://learn.microsoft.com/azure/virtual-machines/quotas">Check vCPU quotas</a></p>
 <p>The lab VM needs 2 vCPUs. The big number comes with chapter 8: creating an ARO cluster needs at least 44 cores at install time (8 for a temporary bootstrap machine, 24 for the control plane, 12 for the workers), and 36 once the install is done. With the default sizes, those cores come from the DSv5 family. <a href="https://learn.microsoft.com/azure/openshift/create-cluster">Create an ARO cluster</a></p>
@@ -28,7 +28,7 @@
 <h2 id="regions">Regions</h2>
 <p>The default region of the course is Sweden Central. In November 2026 it was the cheapest of four European regions compared for the lab VM size, and it offers AKS and ARO. The region is a setting in <code>.env</code>, and the readiness report checks that your region offers the VM size, AKS and ARO for your subscription.</p>
 <h2 id="resource-providers">Resource providers</h2>
-<p>Each Azure service is delivered by a resource provider, such as <code>Microsoft.Compute</code> for VMs. A subscription must register a provider before it can use it. Setup registers every provider the course uses, which costs nothing. <a href="https://learn.microsoft.com/azure/azure-resource-manager/management/resource-providers-and-types">Resource providers</a></p>
+<p>Each Azure service is delivered by a resource provider, such as <code>Microsoft.Compute</code> for VMs. A subscription must register a provider before it can use it. <code>course up</code> registers every provider the course uses, which costs nothing. <a href="https://learn.microsoft.com/azure/azure-resource-manager/management/resource-providers-and-types">Resource providers</a></p>
 <h2 id="sources">Sources</h2>
 <ul>
 <li><a href="https://learn.microsoft.com/azure/virtual-machines/quotas">Check vCPU quotas</a></li>

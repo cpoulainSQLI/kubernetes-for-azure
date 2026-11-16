@@ -16,7 +16,30 @@
 <main id="main" class="content">
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
 <h1>Style guide for contributors</h1>
-<p class="lede">How the course is written, laid out, scripted and checked. These rules apply to every file except the files in <code>archive/</code>, which are kept unchanged until they are reworked.</p>
+<p class="lede">How the course is split, written, laid out, scripted, checked and published. These rules apply to every file of both repositories except the files in <code>archive/</code>, which are kept unchanged until they are reworked.</p>
+
+<h2 id="repositories">Repositories</h2>
+<p>The course lives in two Git repositories that learners follow on their <code>main</code> branch.</p>
+<ul>
+<li>The website, <code>kubernetes-for-azure</code>, holds the pages, their assets, the scripts that build and check them, and the Terraform files of its own hosting. Learners never clone it.</li>
+<li>The lab kit, <a data-kit=".">kubernetes-for-azure-labs</a>, holds everything a learner runs. Learners clone it, and the lab VM clones it too. A fork is optional.</li>
+</ul>
+<p>A file that a learner runs, copies or edits belongs in the kit. A page that a learner reads belongs in the website. The checker of the website fails on any file of the kit left in the site.</p>
+<p>The kit is laid out like this:</p>
+<table>
+<thead><tr><th>Path</th><th>Content</th></tr></thead>
+<tbody>
+<tr><td><code>course</code>, <code>course.ps1</code></td><td>The <code>course</code> command, in bash (your computer and the lab VM) and in PowerShell (your computer)</td></tr>
+<tr><td><code>.env.example</code></td><td>Template of the learner settings, copied to <code>.env</code>, which Git ignores</td></tr>
+<tr><td><code>setup/</code></td><td>The lab VM: Terraform files and cloud-init in <code>setup/infra</code>, the readiness report <code>check.sh</code> and <code>check.ps1</code>, and <code>kit-on-vm.sh</code>, the lab VM side of <code>course up</code></td></tr>
+<tr><td><code>labs/NN-name/</code></td><td><code>setup.sh</code>, <code>validate.sh</code>, <code>teardown.sh</code>, <code>break.sh</code> from chapter 1, other files of the lab, and the Terraform files of the lab in <code>infra</code></td></tr>
+<tr><td><code>lib/</code></td><td><code>lib.sh</code>, <code>lib.ps1</code>, the staged validator engine <code>lib-validate.sh</code> and the broken lab engine <code>lib-break.sh</code></td></tr>
+<tr><td><code>sample-app/</code></td><td>The Go code of the sample app</td></tr>
+<tr><td><code>solutions/NN-name/</code></td><td>The files of the reference solution, laid out like the work folder <code>~/work/NN-name</code> of the lab VM</td></tr>
+<tr><td><code>tools/check-kit.py</code></td><td>The checker of the kit</td></tr>
+</tbody>
+</table>
+<p>The folder name <code>NN-name</code> is the same in <code>labs/</code>, in <code>solutions/</code>, on the lab VM in <code>~/work</code> and in the website in <code>chapters/</code>.</p>
 
 <h2 id="writing">Writing</h2>
 <ul>
@@ -30,19 +53,29 @@
 <li>In bulleted lists, write natural sentences, not "Title: content".</li>
 <li>Explain every container and Kubernetes term the first time a chapter uses it. Do not explain Azure basics. Link to Microsoft Learn instead.</li>
 <li>Paraphrase documentation and link to it. Do not copy documentation text.</li>
-<li>Every product fact, limit and price is checked against primary documentation and cited in the Sources section of the chapter. Write "not verified" next to a statement that could not be checked.</li>
+<li>Every product fact, limit and price is checked against primary documentation and cited in the Sources section of the page. Write "not verified" next to a statement that could not be checked.</li>
 <li>Prices name their source, the currency, the region and the date of the lookup.</li>
 <li>No file mentions a real person, an employer or a client. The learner, the subscription and the region are always variables.</li>
+<li>Learner pages never mention how the website itself is hosted. This guide and the README of the website do.</li>
 </ul>
 
 <h2 id="pages">Pages</h2>
-<p>The course is a static HTML site with no build step: open <code>index.html</code> in a browser, or publish the folder as it is. Every page follows the same template.</p>
+<p>The website is static HTML with no build step: open <code>index.html</code> in a browser, or let the deployment publish the pages as they are. Every page follows the same template.</p>
 <ul>
-<li>The <code>&lt;body&gt;</code> element carries <code>data-root</code>, the relative path to the course root (for example <code>../../</code>), and <code>data-page</code>, the path of the page from the root.</li>
+<li>The <code>&lt;body&gt;</code> element carries <code>data-root</code>, the relative path to the root of the website (for example <code>../../</code>), and <code>data-page</code>, the path of the page from the root.</li>
 <li>The page has the elements <code>site-header</code>, <code>site-nav</code>, <code>main</code>, <code>page-toc</code> and <code>site-footer</code>, in that order. <code>assets/course.js</code> fills the header, the navigation, the table of contents and the footer.</li>
 <li>The navigation is defined once, in the <code>NAV</code> list at the top of <code>assets/course.js</code>.</li>
 <li>Headings that should appear in the table of contents are <code>h2</code> and <code>h3</code> elements with an <code>id</code>.</li>
 <li>After any change to the text, run <code>python3 scripts/build-lab-sheets.py</code>, then <code>python3 scripts/build-search-index.py</code>, to update the lab sheets and <code>assets/search-index.js</code>.</li>
+</ul>
+<p>The Introduction (<code>introduction.html</code>) explains the course, the two repositories, how a lab works and what the course costs. The Setup page (<code>setup.html</code>) takes the learner from an empty computer to a lab VM that passes the readiness report. The home page keeps the outline and one line about the total cost.</p>
+
+<h3 id="commands-and-kit-links">Commands and links to the kit</h3>
+<ul>
+<li>A page shows <code>course</code> commands, never the path of a script. On the learner's computer that is <code>./course up</code>, with <code>.\course.ps1 up</code> as its PowerShell form. On the lab VM it is <code>course start 01</code>, <code>course check 01 --guided</code> and so on. The checker fails when a page shows a command, a lab or an option that the kit does not have.</li>
+<li>A link to a file of the kit is an <code>&lt;a&gt;</code> element without <code>href</code>, with the path of the file in the kit in <code>data-kit</code>: <code>&lt;a data-kit="labs/01-containers/infra/main.tf"&gt;</code>. A folder ends with a slash, and <code>data-kit="."</code> is the whole kit. The checker fails when the path does not exist in the kit.</li>
+<li><code>assets/course.js</code> turns these elements into links to the kit on GitHub, from <code>assets/kit.js</code>, which names the account that hosts the kit. The deployment writes that file, and it is never committed. Without it, for example on a page opened from disk, the links show <code>&lt;account&gt;</code> in their address, and a short note at the top of the page says why.</li>
+<li>An element with a <code>data-kit-owner</code> attribute gets <code>&lt;account&gt;</code> in its text replaced by the same account, for example the <code>git clone</code> command of the Setup page.</li>
 </ul>
 
 <h3 id="chapter-structure">Chapter structure</h3>
@@ -52,20 +85,20 @@
 <li>Before you start: prerequisites, time needed, estimated cost of the lab.</li>
 <li>Concepts: short sections, with a diagram where it helps. Each section ends with a check-yourself question: a <code>&lt;details class="check-yourself"&gt;</code> element whose summary holds the question and whose body holds the answer.</li>
 <li>Knowledge check: 5 multiple-choice questions in an <code>&lt;ol class="quiz"&gt;</code> list. Each question carries its answer in <code>data-answer</code> and its explanation in a <code>&lt;details&gt;</code> element, which the script opens once the learner checks an answer.</li>
-<li>Lab: goal, numbered tasks with two hints each, acceptance criteria grouped by stage, how to run setup, validate and teardown, how the validation works, and the broken lab.</li>
+<li>Lab: goal, numbered tasks with two hints each, acceptance criteria grouped by stage, the <code>course start</code>, <code>course check</code> and <code>course clean</code> commands of the lab, how the validation works, and the broken lab.</li>
 <li>Clean up and cost check.</li>
 <li>Sources, with links to primary documentation.</li>
 </ol>
-<p>The chapter page never contains a copy-paste solution to the lab. Reference solutions live in <code>solutions/</code>.</p>
+<p>The chapter page never contains a copy-paste solution to the lab. The files of a reference solution live in the kit, in <code>solutions/NN-name</code>, and <code>course solution NN</code> copies them into the work folder after asking. The website explains each solution on a page in <code>solutions/NN-name/index.html</code>.</p>
 <p>Under each task, two <code>&lt;details class="hint"&gt;</code> elements give help in two steps. The first says where to look. The second gives the shape of the answer, with placeholders in place of the learner's own values.</p>
-<p>The time needed is an estimate until someone has measured it. Setup scripts and the guided check print how long they took, so a test run gives the numbers to write there.</p>
+<p>The time needed is an estimate until someone has measured it. <code>course up</code>, the lab setup scripts and the guided check print how long they took, so a test run gives the numbers to write there.</p>
 <p>Each chapter has a lab sheet, <code>lab-sheet.html</code>, with the Lab and Clean up sections alone on one page. <code>scripts/build-lab-sheets.py</code> generates it from the chapter page, so never edit it by hand.</p>
 
 <h3 id="platform-variants">Platform variants</h3>
-<p>Commands that run on the learner's own computer differ between Windows (PowerShell) and macOS or Linux (bash). Commands that run on the lab VM are always bash.</p>
+<p>Commands that run on the learner's computer differ between Windows (PowerShell) and macOS or Linux (bash). Commands that run on the lab VM are always bash.</p>
 <ul>
 <li>A block with variants is a <code>&lt;div class="tabs"&gt;</code> that holds one <code>&lt;div class="tab-panel"&gt;</code> per variant. Each panel has a <code>data-label</code>, shown on its tab, and a <code>data-os</code> list with one or more of <code>windows</code>, <code>macos</code> and <code>linux</code>. The script shows the panel that matches the computer chosen in the header, and remembers the choice.</li>
-<li>An inline command with a PowerShell form is written <code>&lt;code data-ps="PowerShell form"&gt;bash form&lt;/code&gt;</code>. The script swaps the text when the learner chooses Windows.</li>
+<li>An inline command with a PowerShell form is written <code>&lt;code data-ps="PowerShell form"&gt;bash form&lt;/code&gt;</code>, for example <code>&lt;code data-ps=".\course.ps1 stop"&gt;./course stop&lt;/code&gt;</code>. The script swaps the text when the learner chooses Windows.</li>
 <li>A block that runs on the lab VM is preceded by <code>&lt;p class="where"&gt;On the lab VM (bash)&lt;/p&gt;</code>.</li>
 </ul>
 
@@ -80,13 +113,24 @@
 </ul>
 
 <h2 id="labs">Labs</h2>
-<p>Every lab has four parts: a setup script, tasks with acceptance criteria on the chapter page, a validation script, and a teardown script. Nothing else reviews the learner's work, so the validation script checks every acceptance criterion that a script can check.</p>
+<p>Every lab has four parts in the kit, in <code>labs/NN-name</code>: a setup script, a validation script and a teardown script, plus the tasks and acceptance criteria on the chapter page. Nothing else reviews the learner's work, so the validation script checks every acceptance criterion that a script can check.</p>
 <ul>
-<li>Scripts that run on the learner's computer (chapter 0 and <code>scripts/lab-vm</code>) exist twice: a bash version (<code>.sh</code>) and a PowerShell version (<code>.ps1</code>). Both must do the same work. Each validation check carries a <code># check: &lt;id&gt;</code> comment and each setup or teardown step a <code># step: &lt;id&gt;</code> comment, and <code>scripts/check-course.py</code> fails when the two versions do not have the same IDs.</li>
-<li>Scripts that run on the lab VM (chapters 1 onwards) are bash only.</li>
+<li>The learner runs them through the <code>course</code> command on the lab VM: <code>course start NN</code> runs <code>setup.sh</code>, <code>course check NN</code> runs <code>validate.sh</code>, <code>course break NN</code> runs <code>break.sh</code> and <code>course clean NN</code> runs <code>teardown.sh</code>. A new lab needs no change to <code>course</code>: it finds the folder by its number.</li>
+<li>The learner's own files live in <code>~/work/NN-name</code> on the lab VM, outside the clone of the kit, so that <code>course update</code> never touches them.</li>
+<li>Lab scripts run on the lab VM and are bash only.</li>
 </ul>
+
+<h3 id="the-course-command">The course command</h3>
+<p>On the learner's computer, <code>course</code> (bash) and <code>course.ps1</code> (PowerShell) manage the lab environment: <code>up</code>, <code>connect</code>, <code>status</code>, <code>check</code>, <code>stop</code>, <code>destroy</code> and <code>update</code>. On the lab VM, the bash <code>course</code> runs the labs: <code>start</code>, <code>check</code>, <code>break</code>, <code>solution</code>, <code>clean</code> and <code>update</code>. The marker file <code>/etc/aro-k8s/lab-vm</code> tells the two sides apart.</p>
+<ul>
+<li>The two lines <code>LAPTOP_COMMANDS</code> and <code>VM_COMMANDS</code> of <code>course</code> list the commands of each side. Both checkers read them.</li>
+<li><code>course up</code> is safe to run twice. When the lab VM exists and its network rule matches <code>LEARNER_IP</code>, it only starts the VM. Otherwise, or with <code>--apply</code>, it runs Terraform. It then makes sure that the kit is cloned on the lab VM and copies <code>.env</code> there, and only <code>.env</code>.</li>
+<li>cloud-init clones the kit into <code>~/aro-k8s-course</code> on the first boot and installs a launcher, <code>/usr/local/bin/course</code>. The clone URL comes from <code>git remote get-url origin</code> of the learner's clone, turned into HTTPS, or from <code>KIT_REPO</code> in <code>.env</code>. No file names the account that hosts the kit.</li>
+<li><code>course update</code> runs <code>git pull --ff-only</code>.</li>
+</ul>
+
 <h3 id="validation-scripts">Validation scripts</h3>
-<p>From chapter 1 onwards, a validator sources <code>scripts/lib-validate.sh</code> and is cut into stages, one per task of the lab, in the same order.</p>
+<p>From chapter 1 onwards, a validator sources <code>lib/lib-validate.sh</code> and is cut into stages, one per task of the lab, in the same order.</p>
 <ul>
 <li>Each stage is a function, <code>stage_N</code>, that prints only through <code>check_pass</code>, <code>check_fail</code>, <code>check_warn</code>, <code>check_skip</code> and <code>check_note</code>. A second function, <code>stage_N_task</code>, prints the task in a few lines for the guided mode, without the solution.</li>
 <li>Every stage holds for the finished lab, so that the full report passes at the end, and never fails because of a later task.</li>
@@ -94,26 +138,28 @@
 <li>A <code>[FAIL]</code> is an acceptance criterion of the chapter page that is not met. A <code>[WARN]</code> is something that works but should be improved. The page lists both.</li>
 <li>Without an option the script is read-only. Tests that create, change or delete something are live tests: they run only with <code>--deep</code>, stay inside the lab VM and the kind cluster, clean up after themselves, and never touch an Azure resource. Without <code>--deep</code> they print <code>[SKIP]</code>.</li>
 <li><code>--guided</code> walks the stages one at a time. It keeps no state: it reads the work each time and resumes at the first stage that does not pass.</li>
+<li>The checker of the website compares the number of stages with the tasks of the chapter page.</li>
 </ul>
 
 <h3 id="broken-labs">Broken labs</h3>
-<p>From chapter 1 onwards, a lab is followed by a broken lab: <code>lab/break.sh</code> sources <code>scripts/lib-break.sh</code>, puts one fault into the finished lab and lets the learner find it.</p>
+<p>From chapter 1 onwards, a lab is followed by a broken lab: <code>labs/NN-name/break.sh</code> sources <code>lib/lib-break.sh</code>, puts one fault into the finished lab and lets the learner find it.</p>
 <ul>
 <li>A fault changes only what lives on the lab VM or in the kind cluster, never the learner's files and never an Azure resource. The script says what it changes and asks before it does.</li>
 <li>Each fault has three functions: <code>symptom_NAME</code> prints what a user would report, <code>inject_NAME</code> injects it, and <code>explain_NAME</code> says how to see it and what repairs it.</li>
 <li>The diagnosis question lists one cause per fault, plus causes that are never the answer.</li>
-<li><code>--restore</code> always puts the lab back as it was, and the validator of the chapter must fail on every fault.</li>
+<li><code>course break NN --restore</code> always puts the lab back as it was, and the validator of the chapter must fail on every fault. The chapter page presents that command.</li>
 </ul>
 
 <h2 id="scripts">Scripts</h2>
 <h3 id="bash">Bash</h3>
 <ul>
-<li>Start with <code>set -euo pipefail</code> and source <code>scripts/lib.sh</code>.</li>
-<li>Scripts that run on the learner's computer stay compatible with bash 3.2, the version that ships with macOS: no associative arrays, no <code>mapfile</code>, no <code>timeout</code> command. Scripts that only run on the lab VM can rely on the bash of Ubuntu.</li>
+<li>Start with <code>set -euo pipefail</code> and source <code>lib/lib.sh</code>.</li>
+<li>The <code>course</code> command and <code>setup/check.sh</code> run on the learner's computer and stay compatible with bash 3.2, the version that ships with macOS: no associative arrays, no <code>mapfile</code>, no <code>timeout</code> command. Scripts that only run on the lab VM can rely on the bash of Ubuntu.</li>
+<li>Run another script of the kit with <code>bash script.sh</code>, so that it works even when Git did not keep its executable bit. Commit every script with the executable bit anyway: <code>git update-index --chmod=+x</code> on Windows.</li>
 </ul>
 <h3 id="powershell">PowerShell</h3>
 <ul>
-<li>Dot-source <code>scripts/lib.ps1</code>, which sets <code>Set-StrictMode -Version Latest</code> and <code>$ErrorActionPreference = 'Stop'</code>.</li>
+<li>Dot-source <code>lib/lib.ps1</code>, which sets <code>Set-StrictMode -Version Latest</code> and <code>$ErrorActionPreference = 'Stop'</code>.</li>
 <li>Stay compatible with Windows PowerShell 5.1, which ships with Windows. PSScriptAnalyzer checks the syntax against 5.1 and 7.4.</li>
 <li>Call native programs through the helpers of <code>lib.ps1</code> (<code>Invoke-Native</code>, <code>Get-AzJson</code>, <code>Get-AzValue</code>, <code>Invoke-AzChange</code>), which check exit codes and hide the error stream of read-only calls.</li>
 <li>Never pass JSON on a command line. Windows PowerShell 5.1 drops the quotes inside it. Write a temporary parameters file instead.</li>
@@ -123,38 +169,57 @@
 <ul>
 <li>Every parameter comes from <code>.env</code>. Nothing is hard-coded per learner.</li>
 <li>Safe to run twice: a second run updates or skips, it never fails because something already exists.</li>
+<li>Scripts for the learner's computer exist in bash and in PowerShell with the same <code># check: &lt;id&gt;</code> and <code># step: &lt;id&gt;</code> comments: <code>course</code> and <code>course.ps1</code>, <code>setup/check.sh</code> and <code>setup/check.ps1</code>. <code>tools/check-kit.py</code> fails when a pair does not have the same IDs.</li>
 <li>Validation scripts are read-only unless the learner adds <code>--deep</code>. They print <code>[PASS]</code>, <code>[FAIL]</code> or <code>[WARN]</code> per check, with a hint after each failure, and exit with 0 when nothing fails and 1 otherwise.</li>
 <li>Scripts never print tokens, keys or passwords, and never take a password on the command line.</li>
-<li>SSH keys are created on the learner's computer and never written to the repository.</li>
+<li>SSH keys are created on the learner's computer and never written to a repository.</li>
 </ul>
 
-<h2 id="azure-resources">Azure resources</h2>
+<h2 id="azure-resources">Azure resources of the labs</h2>
 <ul>
-<li>Every resource created by Terraform or by a script carries the tags <code>course=aro-k8s</code> and <code>chapter=NN</code>, where <code>NN</code> is the two-digit chapter number. In Terraform, each resource sets <code>tags = local.tags</code>.</li>
+<li>Every resource created by Terraform or by a script of the kit carries the tags <code>course=aro-k8s</code> and <code>chapter=NN</code>, where <code>NN</code> is the two-digit chapter number, and <code>00</code> for the setup. In Terraform, each resource sets <code>tags = local.tags</code>.</li>
 <li>A resource type that cannot carry tags (budgets, role assignments, subnets) is preceded in Terraform by a comment that starts with <code># untaggable:</code> and says why.</li>
-<li>A chapter that creates Azure resources keeps its Terraform files in <code>lab/infra</code>: <code>versions.tf</code> with the versions, an empty <code>azurerm</code> backend block and the provider settings, the resources, and the committed <code>.terraform.lock.hcl</code>.</li>
-<li>The state of every chapter lives in the storage account that chapter 0 setup creates, in the container <code>tfstate</code>, one blob per chapter named after the chapter folder. Scripts pass the backend settings with <code>terraform init -backend-config</code> and reach the account with Microsoft Entra ID, never with an account key.</li>
-<li>Scripts pass values to Terraform through <code>TF_VAR_</code> environment variables, and set <code>TF_DATA_DIR</code> to <code>~/.aro-k8s/terraform/&lt;chapter folder&gt;</code>, so that no Terraform working file lands in the course folder.</li>
-<li>On the lab VM, Terraform signs in with the managed identity of the VM, and the provider never registers resource providers: chapter 0 setup registers them.</li>
-<li>Teardown scripts end by listing everything still tagged <code>course=aro-k8s</code>.</li>
+<li>The setup keeps its Terraform files in <code>setup/infra</code>, and a lab that creates Azure resources keeps its own in <code>labs/NN-name/infra</code>: <code>versions.tf</code> with the versions, an empty <code>azurerm</code> backend block and the provider settings, the resources, and the committed <code>.terraform.lock.hcl</code>.</li>
+<li>The state lives in the storage account that <code>course up</code> creates, in the container <code>tfstate</code>: one blob for the setup, <code>setup.tfstate</code>, and one per lab named after its folder. Scripts pass the backend settings with <code>terraform init -backend-config</code> and reach the account with Microsoft Entra ID, never with an account key.</li>
+<li>Scripts pass values to Terraform through <code>TF_VAR_</code> environment variables, and set <code>TF_DATA_DIR</code> to <code>~/.aro-k8s/terraform/&lt;setup or lab folder&gt;</code>, so that no Terraform working file lands in the kit.</li>
+<li>On the lab VM, Terraform signs in with the managed identity of the VM, and the provider never registers resource providers: <code>course up</code> registers them.</li>
+<li>Clean-up commands end by listing everything still tagged <code>course=aro-k8s</code>.</li>
+</ul>
+
+<h2 id="hosting">Hosting of the website</h2>
+<p>The website is an <a href="https://learn.microsoft.com/azure/static-web-apps/overview">Azure Static Web Apps</a> resource on the Free plan, in the author's subscription. Learners never host it.</p>
+<ul>
+<li>The Terraform files are in <code>infra/</code>, with every value a variable. They create their own resource group, tagged <code>project=kubernetes-for-azure</code> and <code>component=site</code>. The website never carries the tag <code>course=aro-k8s</code>, so that the clean-up commands of the kit never list or delete it.</li>
+<li>The state is a local file under the user profile, outside both repositories and outside any synchronised folder, because it holds the deployment token. The README of the website gives the commands.</li>
+<li>The region is West Europe. On 16 November 2026 the resource type accepted Central US, East US 2, West US 2, West Europe and East Asia, not Sweden Central, according to <code>az provider show --namespace Microsoft.Web</code>. The content is served globally anyway: the region only hosts managed Functions and staging environments. <a href="https://learn.microsoft.com/azure/static-web-apps/faq">Static Web Apps FAQ</a></li>
+<li>The Free plan includes 100 GB of bandwidth a month and 250 MB per environment, allows 10 apps per subscription, and has no SLA. <a href="https://learn.microsoft.com/azure/static-web-apps/quotas">Quotas</a>, <a href="https://learn.microsoft.com/azure/static-web-apps/plans">plans</a></li>
+<li>The site keeps the <code>*.azurestaticapps.net</code> hostname that Azure generates. Pull request preview environments are off, in Terraform with <code>preview_environments_enabled = false</code>, and in the workflow, which only runs on <code>main</code>.</li>
+<li>The workflow <code>.github/workflows/deploy.yml</code> checks out the kit next to the website, runs the checks of the website, writes <code>assets/kit.js</code> from <code>github.repository_owner</code>, then uploads the pages with <code>Azure/static-web-apps-deploy</code> and <code>skip_app_build: true</code>. It deploys only if every check passes. The deployment token is in the repository secret <code>AZURE_STATIC_WEB_APPS_API_TOKEN</code>. <a href="https://learn.microsoft.com/azure/static-web-apps/build-configuration">Build configuration</a>, <a href="https://learn.microsoft.com/azure/static-web-apps/deployment-token-management">deployment tokens</a></li>
 </ul>
 
 <h2 id="personal-data">Personal data</h2>
 <p>No file contains a subscription ID, a tenant ID, a public IP address, an e-mail address or a secret. Private address ranges (for example <code>10.20.0.0/16</code>) and the IDs of Azure built-in roles are allowed, because they are the same for everyone.</p>
 
 <h2 id="checks">Checks</h2>
-<p>Run these from the course root before publishing a change:</p>
-<pre><code class="language-bash">shellcheck scripts/*.sh chapters/*/lab/*.sh
-pwsh -c "Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1"
-terraform fmt -check -recursive chapters
-for d in chapters/*/lab/infra; do terraform -chdir="$d" init -backend=false -input=false &gt; /dev/null &amp;&amp; terraform -chdir="$d" validate; done
-npx html-validate "**/*.html"
+<p>Run these from the root of the website before publishing a change. The two build scripts come before the checker, which fails when a lab sheet or the search index is stale.</p>
+<pre><code class="language-bash">npx html-validate "**/*.html"
+terraform fmt -check -recursive infra
+terraform -chdir=infra init -backend=false -input=false &gt; /dev/null &amp;&amp; terraform -chdir=infra validate
 python3 scripts/build-lab-sheets.py
 python3 scripts/build-search-index.py
 python3 scripts/check-course.py
 </code></pre>
-<p><code>terraform init -backend=false</code> downloads the provider without reaching the state. It leaves a <code>.terraform</code> folder in each <code>infra</code> folder, which Git ignores and the checker skips.</p>
-<p><code>scripts/check-course.py</code> checks the writing rules in every page, the internal links and anchors, the alternative text of images, the tags, the personal data rules, the pinned tool versions, the search index and the parity between the bash and PowerShell scripts. To also search for names that must never appear (your own name, an employer, a client), put them in the <code>PRIVATE_TERMS</code> environment variable, separated by commas. Never write them in a file of the course.</p>
+<p><code>scripts/check-course.py</code> checks the writing rules in every page, the internal links and anchors, the alternative text of images, the personal data rules, the tags of the hosting, the search index and the lab sheets. It also reads a checkout of the kit, in the sibling folder <code>../kubernetes-for-azure-labs</code> or in <code>KIT_DIR</code>, and checks that the stages of each validator match the tasks of its page, that every <code>course</code> command a page shows exists, and that every <code>data-kit</code> path exists. To also search for names that must never appear (your own name, an employer, a client), put them in the <code>PRIVATE_TERMS</code> environment variable, separated by commas. Never write them in a file of the course.</p>
+<p>Run these from the kit folder before a change to the kit, then run the checker of the website again:</p>
+<pre><code class="language-bash">shellcheck -x course setup/*.sh labs/*/*.sh lib/*.sh
+pwsh -c "Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1"
+terraform fmt -check -recursive
+for d in setup/infra labs/*/infra; do terraform -chdir="$d" init -backend=false -input=false &gt; /dev/null &amp;&amp; terraform -chdir="$d" validate; done
+(cd sample-app &amp;&amp; go vet ./... &amp;&amp; go test ./...)
+python3 tools/check-kit.py
+</code></pre>
+<p><code>tools/check-kit.py</code> checks the personal data rules, the tags, the pinned tool versions, the parity between the bash and PowerShell scripts, the structure of the validators and broken labs, and the executable bit of the scripts in the Git index. It also takes <code>PRIVATE_TERMS</code>.</p>
+<p><code>terraform init -backend=false</code> downloads the provider without reaching the state. It leaves a <code>.terraform</code> folder next to the files, which Git ignores and the checkers skip, unless <code>TF_DATA_DIR</code> points elsewhere. Each repository has a workflow that runs its checks on GitHub.</p>
 </main>
 <aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
 </div>

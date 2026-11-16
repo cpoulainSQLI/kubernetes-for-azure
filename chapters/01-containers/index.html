@@ -27,8 +27,8 @@
 <h2 id="before-you-start">Before you start</h2>
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
-<li>Chapter 0 done: the readiness report has no <code>[FAIL]</code>.</li>
-<li>The lab VM started (<code data-ps=".\scripts\lab-vm.ps1 start">scripts/lab-vm.sh start</code>) and an SSH session open on it (<code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>), from the course folder on your own computer.</li>
+<li>The <a href="../../setup.html">setup</a> done: the readiness report, <code data-ps=".\course.ps1 check">./course check</code>, has no <code>[FAIL]</code>.</li>
+<li>The lab VM started (<code data-ps=".\course.ps1 up">./course up</code>) and an SSH session open on it (<code data-ps=".\course.ps1 connect">./course connect</code>), from the kit folder on your own computer.</li>
 </ul>
 <h3 id="time-needed">Time needed</h3>
 <p>About 2.5 hours: 60 minutes of reading and 90 minutes for the lab.</p>
@@ -60,7 +60,7 @@
 </tr>
 </tbody>
 </table>
-<p>About 0.56 EUR in total. Setup prints the registry price for your own region and currency before it creates anything. The registry is deleted by the teardown script at the end of the chapter, and a new one comes back in chapter 6.</p>
+<p>About 0.56 EUR in total. <code>course start 01</code> prints the registry price for your own region and currency before it creates anything. <code>course clean 01</code> deletes the registry at the end of the chapter, and a new one comes back in chapter 6.</p>
 <h2 id="concepts">Concepts</h2>
 <h3 id="images-and-containers">Images and containers</h3>
 <p>A container is a normal Linux process that the kernel isolates from the rest of the machine. Two kernel features do the work: namespaces give the process its own view of the file system, the network and the process list, and control groups (cgroups) limit how much CPU and memory it can use. There is no second operating system inside, which is why a container starts in a fraction of a second, unlike a VM.</p>
@@ -148,7 +148,7 @@
 </details>
 <h3 id="registries-and-azure-container-registry">Registries and Azure Container Registry</h3>
 <p>A registry stores images and serves them to anything that needs to pull them: your VM, a Kubernetes cluster, a build pipeline. Docker Hub is the public default. Azure Container Registry (ACR) is a private registry in your subscription. <a href="https://learn.microsoft.com/azure/container-registry/container-registry-intro">Azure Container Registry</a></p>
-<p>Each registry has a login server, <code>&lt;registry name&gt;.azurecr.io</code>. To push to it, you prefix the image name with the login server, sign in, and run <code>docker push</code>. On the lab VM, <code>az login --identity</code> signs the Azure CLI in with the VM's managed identity, then <code>az acr login --name &lt;registry name&gt;</code> exchanges that identity for a registry token that Docker uses. No password is ever typed or stored. The AcrPush role that chapter 0 gave the VM is what allows the push. <a href="https://learn.microsoft.com/azure/container-registry/container-registry-authentication-managed-identity">Authenticate with a managed identity</a></p>
+<p>Each registry has a login server, <code>&lt;registry name&gt;.azurecr.io</code>. To push to it, you prefix the image name with the login server, sign in, and run <code>docker push</code>. On the lab VM, <code>az login --identity</code> signs the Azure CLI in with the VM's managed identity, then <code>az acr login --name &lt;registry name&gt;</code> exchanges that identity for a registry token that Docker uses. No password is ever typed or stored. The AcrPush role that <code>course up</code> gave the VM is what allows the push. <a href="https://learn.microsoft.com/azure/container-registry/container-registry-authentication-managed-identity">Authenticate with a managed identity</a></p>
 <p>The registry of this chapter uses the Basic tier, the smallest one, with 10 GiB of storage included in the daily price. Its admin account, a shared user name and password, stays disabled: every push is then traceable to an identity. <a href="https://learn.microsoft.com/azure/container-registry/container-registry-skus">ACR service tiers</a></p>
 <p>Docker Hub limits how many pulls anonymous users can make in a given time. The lab only pulls a few images, but a classroom behind one public IP address can hit the limit. <a href="https://docs.docker.com/docker-hub/usage/">Docker Hub usage and limits</a></p>
 <figure class="diagram">
@@ -322,7 +322,7 @@
 </ol>
 <p>Useful starting points, without giving the solution away: the <a href="../../sample-app/index.html">sample app page</a> explains how to set the version at build time, the Concepts section above lists every instruction and command you need, and the official <code>golang</code> image on Docker Hub provides the Go toolchain for the build stage.</p>
 <h3 id="acceptance-criteria">Acceptance criteria</h3>
-<p><code>validate.sh</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning.</p>
+<p><code>course check 01</code> checks every line below. A criterion that is not met is a <code>[FAIL]</code>, unless the line says that it is a warning.</p>
 <p>Stage 1, the Dockerfile:</p>
 <ul>
 <li>The file is <code>~/work/01-containers/sample-app/Dockerfile</code> and has at least two stages.</li>
@@ -365,47 +365,47 @@
 <p>In your SSH session on the lab VM:</p>
 <p class="where">On the lab VM (bash)</p>
 <pre><code class="language-bash"># 1. Setup: creates the registry and copies the sample app to ~/work
-~/aro-k8s-course/chapters/01-containers/lab/setup.sh
+course start 01
 
 # 2. Do the tasks. The guided check follows you: task, check, hints
-~/aro-k8s-course/chapters/01-containers/lab/validate.sh --guided
+course check 01 --guided
 
 # 3. Full report at the end. It changes nothing
-~/aro-k8s-course/chapters/01-containers/lab/validate.sh
+course check 01
 
 # 4. Optional: the full report with the live tests
-~/aro-k8s-course/chapters/01-containers/lab/validate.sh --deep
+course check 01 --deep
 
-# 5. Teardown, once the report passes: removes the container and the registry
-~/aro-k8s-course/chapters/01-containers/lab/teardown.sh
+# 5. Clean up, once the report passes: removes the container and the registry
+course clean 01
 </code></pre>
-<p>Setup signs the Azure CLI in with the VM's managed identity, creates the registry with Terraform from <a href="lab/infra/main.tf">lab/infra/main.tf</a> and prints its login server. Terraform signs in with the same identity and keeps the state of the registry in the storage account of chapter 0, so teardown deletes exactly what setup created. Keep the local images when you are done: chapter 2 uses them.</p>
-<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/01-containers/index.html">reference solution</a>.</p>
+<p><code>course start 01</code> signs the Azure CLI in with the VM's managed identity, creates the registry with Terraform from <a data-kit="labs/01-containers/infra/main.tf">labs/01-containers/infra/main.tf</a> in the kit and prints its login server. Terraform signs in with the same identity and keeps the state of the registry in the storage account that <code>course up</code> created, so <code>course clean 01</code> deletes exactly what <code>course start 01</code> created. Keep the local images when you are done: chapter 2 uses them.</p>
+<p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/01-containers/index.html">reference solution</a>. <code>course solution 01</code> copies it into your work folder after asking, and keeps your own file aside.</p>
 <h3 id="how-the-validation-works">How the validation works</h3>
-<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\scripts\lab-vm.ps1 connect">scripts/lab-vm.sh connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
-<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a live test that was left out. The exit code is 0 when no check fails. <code>validate.sh --stage 2</code> reports on one stage only.</p>
+<p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\course.ps1 connect">./course connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>
+<p>The full report runs every stage at once. Each line is a <code>[PASS]</code>, a <code>[FAIL]</code> with a hint, a <code>[WARN]</code> for something that works but that you should improve, or a <code>[SKIP]</code> for a live test that was left out. The exit code is 0 when no check fails. <code>course check 01 --stage 2</code> reports on one stage only.</p>
 <p>The report and the guided check are read-only: they read your <code>Dockerfile</code>, inspect Docker and the registry, and send <code>GET</code> requests. Only <code>--deep</code> starts something: a temporary container from your image, which it stops and removes. It never touches your own container, your image or your Azure resources.</p>
 <h3 id="break-it-and-fix-it">Break it and fix it</h3>
-<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>break.sh</code> puts one of four faults into your running container, and tells you only what a user would report.</p>
+<p>Once the lab passes, practise the other half of the job: finding out why something that worked no longer does. <code>course break 01</code> puts one of four faults into your running container, and tells you only what a user would report.</p>
 <p class="where">On the lab VM (bash)</p>
 <pre><code class="language-bash"># 1. Inject one fault, after a confirmation
-~/aro-k8s-course/chapters/01-containers/lab/break.sh
+course break 01
 
 # 2. Investigate, then say what the cause is
-~/aro-k8s-course/chapters/01-containers/lab/break.sh --diagnose
+course break 01 --diagnose
 
 # 3. Repair it, then confirm
-~/aro-k8s-course/chapters/01-containers/lab/validate.sh --stage 3
+course check 01 --stage 3
 
 # Or give up and put the lab back as it was
-~/aro-k8s-course/chapters/01-containers/lab/break.sh --restore
+course break 01 --restore
 </code></pre>
-<p>Investigate with <code>docker ps</code>, <code>docker logs</code> and <code>docker inspect</code>. Do not run <code>validate.sh</code> before you have a diagnosis, because its report names the fault. Each run of <code>break.sh</code> injects another fault, until you have seen them all. The script only stops or replaces the <code>sample-app</code> container. It never touches your image, your <code>Dockerfile</code> or Azure. Do this before teardown, which removes the container.</p>
+<p>Investigate with <code>docker ps</code>, <code>docker logs</code> and <code>docker inspect</code>. Do not run <code>course check 01</code> before you have a diagnosis, because its report names the fault. Each run of <code>course break 01</code> injects another fault, until you have seen them all. The script only stops or replaces the <code>sample-app</code> container. It never touches your image, your <code>Dockerfile</code> or Azure. Do this before <code>course clean 01</code>, which removes the container.</p>
 <h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
 <ul>
-<li>Run <code>teardown.sh</code> on the lab VM once the full report passes. It removes the <code>sample-app</code> container, deletes the registry and lists what is still tagged <code>course=aro-k8s</code>. The resource group and the VM of chapter 0 should be the only items left.</li>
+<li>Run <code>course clean 01</code> on the lab VM once the full report passes. It removes the <code>sample-app</code> container, deletes the registry and lists what is still tagged <code>course=aro-k8s</code>. What <code>course up</code> created, the lab environment and the storage of the Terraform state, should be the only items left.</li>
 <li>Keep the local images on the VM. Chapter 2 loads <code>sample-app:1.0.0</code> into Kubernetes.</li>
-<li>From your own computer, deallocate the VM: <code data-ps=".\scripts\lab-vm.ps1 stop">scripts/lab-vm.sh stop</code>.</li>
+<li>From your own computer, deallocate the VM: <code data-ps=".\course.ps1 stop">./course stop</code>.</li>
 <li>The next day, Cost analysis filtered on <code>chapter=01</code> should show one day of Basic registry, about 0.14 EUR.</li>
 </ul>
 <h2 id="sources">Sources</h2>

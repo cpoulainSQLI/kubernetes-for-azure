@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Introduction | Kubernetes and ARO course</title>
+<link rel="stylesheet" href="assets/course.css">
+<script src="assets/search-index.js" defer></script>
+<script src="assets/course.js" defer></script>
+</head>
+<body data-root="" data-page="introduction.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
+<h1 id="introduction">Introduction</h1>
+<p class="lede">What the course builds, who it is for, how the website and the lab kit fit together, how a lab works and what it costs. Read this page before the <a href="setup.html">setup</a>.</p>
+
+<h2 id="what-the-course-builds">What the course builds</h2>
+<p>The course starts with your first container image and ends with an Azure Red Hat OpenShift (ARO) cluster. You build one small web app into an image and run it on a Kubernetes cluster on your own lab VM. Later chapters run the same app on Azure Kubernetes Service (AKS), on OpenShift and on ARO, and show what each platform adds.</p>
+<p>Every chapter ends with a lab on your own Azure subscription. A script checks your work stage by stage and tells you what to fix. The <a href="index.html#outline">outline</a> lists the chapters.</p>
+
+<h2 id="who-it-is-for">Who it is for</h2>
+<p>You know basic Azure: the portal, subscriptions, resource groups, <code>az login</code>, and what a virtual network is. You have never built a container image or used Kubernetes. You can type commands in a terminal and edit text files, and you do not need to write application code. <a href="about.html">About this course</a> describes the full learner profile and what you can do after each part.</p>
+
+<h2 id="two-repositories">The website and the lab kit</h2>
+<p>The course lives in two Git repositories.</p>
+<ul>
+<li>The website, built from the repository <code>kubernetes-for-azure</code>, is what you are reading. It holds the explanations, the lab tasks and their hints, the costs, and the reference solutions explained step by step. You never need a copy of it.</li>
+<li>The lab kit is the repository <a data-kit=".">kubernetes-for-azure-labs</a>. It holds what you run: the <code>course</code> command, the Terraform files that build your lab environment in Azure, the scripts that set up and check each lab, the sample app and the files of the reference solutions. You clone it on your own computer, and the lab VM clones it too.</li>
+</ul>
+<p>A fork of the kit is optional. It lets you keep your own changes on GitHub. The lab VM clones the same repository as your computer, without signing in, so a fork must be public.</p>
+<p>Follow the <code>main</code> branch of the kit. <code data-ps=".\course.ps1 update">./course update</code> brings your clone and the one on the lab VM up to date. Your settings and your work are not part of the kit, so an update never changes them.</p>
+
+<h2 id="how-a-lab-works">How a lab works</h2>
+<p>You work in two places. On your own computer, the <code>course</code> command creates the lab VM in your subscription, starts and stops it, and opens SSH sessions on it. Your computer only needs the Azure CLI, Terraform, Git and an SSH client, and the command exists for PowerShell on Windows and for bash on macOS and Linux. The lab VM is a small Linux VM with Docker, kind, kubectl, the Azure CLI and Terraform. You do every lab there, the way a platform team works from a shared jump host.</p>
+<p>Use the picker at the top of every page to choose your computer. Command blocks that differ between Windows, macOS and Linux then show the right variant, and the choice is remembered from page to page. Commands that run on the lab VM are always bash, and are labelled as such.</p>
+<p>Every lab follows the same steps on the lab VM. With lab <code>01</code> as the example:</p>
+<ol>
+<li><code>course start 01</code> prepares what the lab needs. When the lab creates Azure resources, it prints their cost first.</li>
+<li>You do the tasks of the chapter page. They are goals with acceptance criteria, not commands to copy, and each task has two hints that you open when you need them.</li>
+<li><code>course check 01</code> reads your files and the state of your work, and prints <code>[PASS]</code>, <code>[FAIL]</code> or <code>[WARN]</code> for each criterion, with a hint for each failure. <code>--guided</code> follows you task by task, and <code>--deep</code> adds live tests. Without <code>--deep</code> the check never changes anything.</li>
+<li><code>course break 01</code> puts one fault into your finished lab, and you find and repair it.</li>
+<li><code>course clean 01</code> removes what the lab created and lists anything still tagged for the course.</li>
+</ol>
+<p>Each chapter also has a lab sheet, which is the lab alone on one page. The <a href="solutions/index.html">reference solutions</a> show one way to pass each lab. Look at them after you have tried, not before.</p>
+
+<h2 id="costs">Costs</h2>
+<p>Everything in this course runs on Azure resources that you pay for, from a credit or from your card. The amounts below are for Sweden Central in November 2026, from the public price list. <code>course up</code> and every <code>course start</code> that creates Azure resources look the prices up again for your region and currency, and print them before they create anything.</p>
+<table>
+<thead><tr><th>Part of the course</th><th>What costs money</th><th>Estimate</th></tr></thead>
+<tbody>
+<tr><td>Setup, chapters 1 and 2</td><td>The lab VM while it runs, its disk and its IP address while they exist, a container registry for one day, and a few kilobytes of Terraform state in a storage account</td><td>About 1.50 EUR over three days if you destroy the lab VM afterwards. About 13 EUR a month if you keep it and use it 2 hours a day</td></tr>
+<tr><td>Chapters 3 to 7</td><td>Not written yet. Each chapter will state its cost before its lab</td><td>Not priced yet</td></tr>
+<tr><td>Chapters 8 and 9, ARO</td><td>A cluster of six VMs, with their disks and the OpenShift licence of the workers, for as long as it exists. That includes the 45 minutes it takes to create</td><td>Roughly 2.5 to 3 EUR per hour, so 8 to 9 EUR for a three-hour session. This is an estimate from the price list, not yet measured</td></tr>
+</tbody>
+</table>
+<p>ARO is by far the most expensive part. It also needs a quota of 44 vCPUs, which many subscriptions do not have by default. Check both early: the readiness report of the setup tells you where you stand, and <a href="azure-limits.html">Quotas, regions and resource providers</a> explains what to ask for. <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, <a href="https://learn.microsoft.com/azure/openshift/openshift-service-definitions">how ARO is billed</a>, <a href="https://learn.microsoft.com/azure/openshift/create-cluster">create an ARO cluster</a></p>
+
+<h3 id="how-your-subscription-is-billed">How your subscription is billed</h3>
+<p>Azure bills each resource through meters. A VM is billed per hour of running time, a managed disk per month (shared out over the hours it exists), a static public IP address per hour, and a container registry per day. You can see every meter and its price in the <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, which is where every price in this course comes from.</p>
+<p>On a credit-based subscription, such as the monthly credit that comes with a Visual Studio subscription, usage is charged against the credit. Three facts shape every lab in this course:</p>
+<ul>
+<li>With the spending limit on, Azure disables your services for the rest of the billing period once the credit is spent. The documentation describes VMs being stopped and deallocated and storage becoming read-only. For subscriptions with a monthly credit, the subscription is re-enabled at the start of the next billing period. <a href="https://learn.microsoft.com/azure/cost-management-billing/manage/spending-limit">Spending limit</a></li>
+<li>Some charges, such as most third-party Marketplace offers, are never covered by the credit, even with the spending limit on. <a href="https://learn.microsoft.com/azure/cost-management-billing/manage/spending-limit">Spending limit</a></li>
+<li>Credit-based subscriptions can have lower default quotas than paid ones, and some regions or services may not be available to them. <a href="https://azure.microsoft.com/pricing/member-offers/credit-for-visual-studio-subscribers/">Visual Studio credit</a></li>
+</ul>
+<p>Treat the spending limit as a last resort: when it triggers, it stops everything at once, including the lab you were in the middle of.</p>
+<details class="check-yourself">
+<summary>your credit runs out on the 20th of the month. What happens to the lab VM, and when can you use it again?</summary>
+<p>Azure disables your services and stops and deallocates the VM. You can start it again once the subscription is re-enabled, at the beginning of the next billing period. Your disk is kept, so your work is still there.</p>
+</details>
+
+<h3 id="stopped-is-not-the-same-as-deallocated">Stopped is not the same as deallocated</h3>
+<p>A VM has several power states, and they are not billed the same way. <a href="https://learn.microsoft.com/azure/virtual-machines/states-billing">States and billing of Azure VMs</a></p>
+<table>
+<thead>
+<tr>
+<th>Power state</th>
+<th>How you get there</th>
+<th>Compute billed?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Running</td>
+<td>Start the VM</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Stopped</td>
+<td>Shut the operating system down from inside the VM, for example <code>sudo poweroff</code></td>
+<td>Yes, Azure still reserves the hardware</td>
+</tr>
+<tr>
+<td>Deallocated</td>
+<td>Stop the VM through Azure: the portal Stop button, <code>az vm deallocate</code>, or auto-shutdown</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>In every state, the disk and the static public IP address are still billed. Only deleting them stops those charges.</p>
+<p>The course always stops the VM through Azure, with <code data-ps=".\course.ps1 stop">./course stop</code> on your own computer, never from inside it.</p>
+<details class="check-yourself">
+<summary>you typed sudo poweroff in the VM and the portal now shows "Stopped". Are you still paying for compute?</summary>
+<p>Yes. A VM shut down from inside the operating system keeps its hardware reservation and is still billed for compute. Deallocate it from your own computer with <code data-ps=".\course.ps1 stop">./course stop</code>.</p>
+</details>
+
+<h3 id="the-five-guardrails-of-the-course">The five guardrails of the course</h3>
+<p>Each guardrail covers a different failure. None of them is enough on its own.</p>
+<table>
+<thead>
+<tr>
+<th>Guardrail</th>
+<th>What it does</th>
+<th>What it does not do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spending limit</td>
+<td>Stops all services when the credit is spent</td>
+<td>Warn you early, or stop at a lower amount</td>
+</tr>
+<tr>
+<td>Budget with alerts</td>
+<td>E-mails you at 50%, 80% and 100% of the budget in actual cost, and at 100% in forecast cost</td>
+<td>Stop anything. Cost data arrives 8 to 24 hours late and budgets are evaluated once a day</td>
+</tr>
+<tr>
+<td>Auto-shutdown</td>
+<td>Deallocates the lab VM every day at a fixed time</td>
+<td>Stop the disk and IP charges, or stop any other resource</td>
+</tr>
+<tr>
+<td><code>course clean</code> and <code>course destroy</code></td>
+<td>Delete what a lab or the setup created</td>
+<td>Anything at all if you do not run them</td>
+</tr>
+<tr>
+<td>Tags <code>course=aro-k8s</code> and <code>chapter=NN</code></td>
+<td>Let the clean-up commands and cost analysis find every course resource</td>
+<td>Cover resource types that do not accept tags</td>
+</tr>
+</tbody>
+</table>
+<p>The budget alerts are described in <a href="https://learn.microsoft.com/azure/cost-management-billing/costs/tutorial-acm-create-budgets">Create and manage budgets</a>. A forecast alert is the early warning: it fires when Azure predicts that your spending will reach the threshold by the end of the month, before the money is actually spent. Auto-shutdown deallocates the VM, as described in <a href="https://learn.microsoft.com/azure/cost-management-billing/understand/plan-manage-costs#optimize-and-reduce-costs">Plan to manage Azure costs</a>.</p>
+<p>The budget covers the whole subscription, not only the lab resource group, so that it also catches resources created outside the course.</p>
+<details class="check-yourself">
+<summary>you forget the lab VM running on a Friday evening. Which guardrail stops the cost, and which one tells you about it?</summary>
+<p>Auto-shutdown deallocates the VM at the time set in <code>.env</code>, which stops the compute cost that evening. The budget would only tell you if the total spending crossed a threshold, and with a delay of up to a day. The disk and IP address keep costing a few cents a day until you destroy the lab environment.</p>
+</details>
+
+<h3 id="what-the-course-does-for-you">What the course does for you</h3>
+<p>The course is designed for a subscription with a monthly credit of about 130 EUR and the spending limit on. These guardrails exist so that the spending limit never stops your subscription by accident.</p>
+<ul>
+<li>The spending limit stays on.</li>
+<li><code>course up</code> creates a monthly budget with alerts at 50%, 80% and 100% of actual cost, and at 100% of forecast cost.</li>
+<li>The lab VM shuts down automatically every evening.</li>
+<li>Every lab has a clean-up command, and every clean-up lists what is still tagged for the course.</li>
+<li>Nothing runs overnight unless a chapter says so.</li>
+<li>ARO only appears in chapters 8 and 9, as short labs that create and delete a cluster in the same session.</li>
+</ul>
+
+<h3 id="cost-habits">Your cost habits</h3>
+<ul>
+<li>Read the estimate that <code>course up</code> and <code>course start</code> print, and answer no if it surprises you.</li>
+<li>Stop the lab VM at the end of every session with <code data-ps=".\course.ps1 stop">./course stop</code>. A VM that you only shut down from the inside still costs money.</li>
+<li>Run <code>course clean</code> at the end of each chapter. A registry or a cluster costs money while it exists, whether you use it or not.</li>
+<li>When you pause the course for more than a few weeks, delete the lab environment with <code data-ps=".\course.ps1 destroy">./course destroy</code>. <code data-ps=".\course.ps1 up">./course up</code> builds it again when you come back.</li>
+<li>The next day, open Cost analysis in the portal and filter on the tag <code>course=aro-k8s</code>. Costs appear with a delay of up to a day.</li>
+<li>Take a budget alert seriously. It warns you, and it stops nothing.</li>
+</ul>
+<p>Each chapter states its estimated cost in its "Before you start" section, with the source and date of the prices.</p>
+
+<h2 id="sources">Sources</h2>
+<p>Prices: <a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>, queried on 13 November 2026 for Sweden Central, currency EUR. The setup and each chapter list the exact queries.</p>
+<ul>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/manage/spending-limit">Azure spending limit</a></li>
+<li><a href="https://azure.microsoft.com/pricing/member-offers/credit-for-visual-studio-subscribers/">Monthly Azure credit for Visual Studio subscribers</a></li>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/costs/understand-cost-mgt-data">Understand Cost Management data</a></li>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/costs/tutorial-acm-create-budgets">Create and manage budgets</a></li>
+<li><a href="https://learn.microsoft.com/azure/virtual-machines/states-billing">States and billing status of Azure VMs</a></li>
+<li><a href="https://learn.microsoft.com/azure/cost-management-billing/understand/plan-manage-costs">Plan to manage Azure costs</a></li>
+<li><a href="https://learn.microsoft.com/azure/openshift/openshift-service-definitions">Azure Red Hat OpenShift service definitions</a></li>
+<li><a href="https://learn.microsoft.com/azure/openshift/create-cluster">Create an Azure Red Hat OpenShift cluster</a></li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

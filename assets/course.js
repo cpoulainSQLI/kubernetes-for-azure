@@ -15,8 +15,11 @@
   var NAV = [
     { title: "Home", href: "index.html" },
     { title: "About this course", href: "about.html" },
+    { group: "Start here", items: [
+      { title: "Introduction", href: "introduction.html" },
+      { title: "Setup", href: "setup.html" }
+    ] },
     { group: "Part 1, foundations", items: [
-      { title: "0. Lab setup", href: "chapters/00-lab-setup/index.html" },
       { title: "1. Containers", href: "chapters/01-containers/index.html" },
       { title: "2. Kubernetes core", href: "chapters/02-kubernetes-core/index.html" }
     ] },
@@ -305,6 +308,55 @@
     document.addEventListener("click", function (event) { if (!results.contains(event.target) && event.target !== input) { hide(); } });
   }
 
+  // ---------- Links to the lab kit ----------
+  // A link to a file of the kit carries data-kit="path/in/the/kit": a trailing slash for a folder, "." for the
+  // whole kit. assets/kit.js names the GitHub account that hosts the kit. The deployment writes it, and it is
+  // never committed. Without it, for example when a page is opened from disk, the links show <account> in
+  // their address and the page says why. An element with data-kit-owner gets <account> replaced in its text.
+  var KIT_REPOSITORY = "kubernetes-for-azure-labs";
+  var KIT_BRANCH = "main";
+
+  function kitUrl(owner, path) {
+    var base = "https://github.com/" + owner + "/" + KIT_REPOSITORY;
+    if (!path || path === ".") { return base; }
+    return base + (/\/$/.test(path) ? "/tree/" : "/blob/") + KIT_BRANCH + "/" + path.replace(/\/$/, "");
+  }
+
+  function applyKitLinks() {
+    var config = window.COURSE_KIT || {};
+    var owner = /^[A-Za-z0-9-]+$/.test(config.owner || "") ? config.owner : "";
+    var links = document.querySelectorAll("a[data-kit]");
+    var filled = document.querySelectorAll("[data-kit-owner]");
+    Array.prototype.forEach.call(links, function (link) {
+      var path = link.getAttribute("data-kit");
+      if (owner) {
+        link.setAttribute("href", kitUrl(owner, path));
+      } else {
+        link.removeAttribute("href");
+        link.setAttribute("title", kitUrl("<account>", path));
+        link.classList.add("kit-offline");
+      }
+    });
+    if (owner) {
+      Array.prototype.forEach.call(filled, function (node) { node.textContent = node.textContent.split("<account>").join(owner); });
+      return;
+    }
+    var heading = document.querySelector("#main h1");
+    if ((links.length || filled.length) && heading) {
+      heading.parentNode.insertBefore(el("p", { "class": "callout kit-note", text:
+        "Links to the lab kit point to github.com/<account>/" + KIT_REPOSITORY + ". This copy of the site does not know " +
+        "the account, so replace <account> with the GitHub account that publishes the course." }), heading.nextSibling);
+    }
+  }
+
+  function loadKitConfig() {
+    var script = document.createElement("script");
+    script.src = root + "assets/kit.js";
+    script.onload = applyKitLinks;
+    script.onerror = applyKitLinks;
+    document.head.appendChild(script);
+  }
+
   // ---------- Footer ----------
   function buildFooter() {
     var footer = document.getElementById("site-footer");
@@ -323,5 +375,6 @@
   showInlineCommands(currentPlatform);
   buildCopyButtons();
   buildQuiz();
+  loadKitConfig();
   buildFooter();
 })();
