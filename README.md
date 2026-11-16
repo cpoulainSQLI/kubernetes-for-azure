@@ -2,7 +2,7 @@
 
 A hands-on course, from zero containers to an Azure Red Hat OpenShift cluster, with labs on your own Azure subscription.
 
-This repository is the website of the course: static HTML pages with no build step. The site address will be linked here after the first deployment.
+This repository is the website of the course: static HTML pages with no build step. The site is published at https://ashy-tree-001ac5303.6.azurestaticapps.net/.
 
 Learners do not need this repository. They clone the lab kit, `kubernetes-for-azure-labs`, which holds the `course` command, the lab scripts, the sample app and the files of the reference solutions. The Introduction and Setup pages of the site explain how.
 
