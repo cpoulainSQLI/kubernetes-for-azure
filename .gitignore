@@ -13,3 +13,10 @@ sample-app/sample-app
 # Tools used by the checks
 node_modules/
 __pycache__/
+
+# Notes passed from one working session to the next, and the local instructions and working files of a coding agent.
+# They stay on the author's machine.
+handoff/
+CLAUDE.md
+CLAUDE.local.md
+.claude/

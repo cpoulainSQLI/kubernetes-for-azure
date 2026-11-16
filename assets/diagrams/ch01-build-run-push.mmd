@@ -1,6 +1,0 @@
-flowchart LR
-  df["Dockerfile and<br/>sample-app source"] -- "docker build" --> img["Image sample-app:1.0.0<br/>on the lab VM"]
-  img -- "docker run" --> ctr["Container sample-app<br/>port 8080"]
-  img -- "docker tag + docker push" --> acr["Azure Container Registry<br/>sample-app:1.0.0"]
-  hub["Docker Hub<br/>base images"] -- "pulled during the build" --> img
-  acr -. "pulled later by AKS, chapter 6" .-> aks["Kubernetes nodes"]

@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "assets" / "search-index.js"
 MAX_TEXT = 1500
 SKIP_TAGS = {"script", "style", "nav", "button", "noscript"}
+# Folders that are not part of the site: tool folders, the local notes and the working copies of a coding agent.
+SKIP_NAMES = {".git", "node_modules", "handoff", ".claude"}
 
 
 def course_pages():
@@ -26,7 +28,9 @@ def course_pages():
     pages = [ROOT / "index.html"]
     for path in sorted(ROOT.rglob("*.html")):
         relative = path.relative_to(ROOT).as_posix()
-        if path == ROOT / "index.html" or relative.startswith(("archive/lessons/", "archive/reference/", "node_modules/")):
+        if any(part in SKIP_NAMES for part in path.relative_to(ROOT).parts):
+            continue
+        if path == ROOT / "index.html" or relative.startswith(("archive/lessons/", "archive/reference/")):
             continue
         if path.name == "lab-sheet.html":
             # A lab sheet repeats a part of its chapter page.
@@ -109,7 +113,7 @@ def render(entries):
 
 def main():
     entries = build_index()
-    OUTPUT.write_text(render(entries), encoding="utf-8")
+    OUTPUT.write_text(render(entries), encoding="utf-8", newline="\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} with {len(entries)} sections.")
     return 0
 

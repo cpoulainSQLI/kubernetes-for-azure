@@ -31,7 +31,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVED = ("archive/lessons/", "archive/reference/", "archive/assets/", "archive/tools/")
-SKIP_DIRS = {".git", "node_modules"}
+# Names the checks leave alone: tool folders, and what Git ignores on the author's machine. These are the local
+# notes, the agent instructions and .claude, where a coding agent keeps its settings and its working copies.
+SKIP_NAMES = {".git", "node_modules", "handoff", "CLAUDE.md", "CLAUDE.local.md", ".claude"}
 TEXT_SUFFIXES = {".md", ".html", ".sh", ".ps1", ".psd1", ".bicep", ".yaml", ".yml", ".go", ".mod", ".py", ".css", ".js", ".json", ""}
 PLATFORMS = {"windows", "macos", "linux"}
 
@@ -77,7 +79,7 @@ def is_archived(path):
 
 def iter_files():
     for path in sorted(ROOT.rglob("*")):
-        if not path.is_file() or any(part in SKIP_DIRS for part in path.relative_to(ROOT).parts):
+        if not path.is_file() or any(part in SKIP_NAMES for part in path.relative_to(ROOT).parts):
             continue
         if path.suffix in TEXT_SUFFIXES or path.name == "Dockerfile":
             yield path
@@ -451,7 +453,7 @@ def check_break_scripts():
 def check_leftovers():
     """The course is HTML only: one Markdown file, the README, and diagrams as PNG exports."""
     for path in sorted(ROOT.rglob("*.md")):
-        if any(part in SKIP_DIRS for part in path.parts) or path == ROOT / "README.md":
+        if any(part in SKIP_NAMES for part in path.relative_to(ROOT).parts) or path == ROOT / "README.md":
             continue
         errors.append(f"{relative(path)}: Markdown file. Pages are HTML, and README.md is the only Markdown file")
     for path in sorted((ROOT / "assets" / "diagrams").iterdir()):
