@@ -287,6 +287,21 @@ az account show --query "{name:name, state:state}" --output table
 <p>Always stop the VM with <code data-ps=".\course.ps1 stop">./course stop</code>, never with <code>sudo poweroff</code> from inside it: the Introduction explains why <a href="introduction.html#stopped-is-not-the-same-as-deallocated">stopped is not the same as deallocated</a>. <code data-ps=".\course.ps1 status">./course status</code> shows the power state. The auto-shutdown deallocates the VM in the evening if you forget.</p>
 <p>When the kit changes, <code data-ps=".\course.ps1 update">./course update</code> pulls it on your computer, and on the lab VM if it runs. On the lab VM, <code>course update</code> does the same for its own clone.</p>
 
+<h3 id="edit-files-from-vs-code">Edit files from VS Code</h3>
+<p>The labs run on the lab VM, so the files you edit live there. In the SSH session you can use <code>nano</code> or <code>vim</code>. If you prefer VS Code, its Remote - SSH extension opens folders of the lab VM in VS Code on your computer. Whatever you open in that window runs on the VM: the files, the terminal and any extension you add there. <a href="https://code.visualstudio.com/docs/remote/ssh">Remote development using SSH</a></p>
+<ol>
+<li>In VS Code, install the extension Remote - SSH (<code>ms-vscode-remote.remote-ssh</code>).</li>
+<li>From the kit folder on your computer, run <code data-ps=".\course.ps1 ssh-config">./course ssh-config</code>. It prints a <code>Host</code> block with the IP address of the lab VM, your user name, your key, and the known hosts file that <code data-ps=".\course.ps1 connect">./course connect</code> uses.</li>
+<li>Paste the block at the end of <code>~/.ssh/config</code> on your computer (<code>C:\Users\&lt;you&gt;\.ssh\config</code> on Windows), and create the file if it does not exist. In PowerShell, <code>.\course.ps1 ssh-config | Set-Clipboard</code> puts the block on the clipboard.</li>
+<li>Start the VM with <code data-ps=".\course.ps1 up">./course up</code> if it is stopped. Then, in VS Code, run "Remote-SSH: Connect to Host..." from the Command Palette and pick <code>arok8s-lab-vm</code> (the name starts with your <code>PREFIX</code>).</li>
+<li>Open the folder <code>/home/azureuser/work</code>, where <code>course start</code> puts the files of each lab. If you changed <code>ADMIN_USERNAME</code>, use your user name instead of <code>azureuser</code>.</li>
+<li>VS Code then offers the Kubernetes extension, which the course recommends for that folder. Install it. It goes on the lab VM, together with the YAML extension it depends on.</li>
+</ol>
+<p>With the Kubernetes extension, VS Code completes and checks your manifests. It reads the <code>apiVersion</code> and <code>kind</code> of each document and takes the matching schema from the cluster that kubectl points to, so start a new manifest with those two fields. The kind configuration file is not a Kubernetes resource, so it gets no completion. <a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">Kubernetes extension for VS Code</a></p>
+<p>In a terminal on the lab VM, in VS Code or in <code data-ps=".\course.ps1 connect">./course connect</code>, the Tab key completes <code>kubectl</code> and <code>kind</code> commands. <code data-ps=".\course.ps1 up">./course up</code> sets this up, and it works in every new shell. <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Install kubectl on Linux</a></p>
+<p>The first connection installs VS Code Server on the lab VM. Microsoft asks for at least 1 GB of memory on the remote machine and recommends 2 GB with a 2-core CPU. The lab VM has 2 vCPUs and 8 GiB. <a href="https://code.visualstudio.com/docs/remote/linux">Linux prerequisites for remote development</a></p>
+<p>The IP address in the block stays the same when you stop and start the VM. It changes only if you delete the environment with <code data-ps=".\course.ps1 destroy">./course destroy</code> and create it again, and then you run <code data-ps=".\course.ps1 ssh-config">./course ssh-config</code> again and replace the old block. VS Code loses the connection when the VM is deallocated, by <code data-ps=".\course.ps1 stop">./course stop</code> or by the auto-shutdown. Start the VM and reconnect.</p>
+
 <h2 id="clean-up-and-cost-check">Clean up and cost check</h2>
 <ul>
 <li>At the end of every session, deallocate the VM with <code data-ps=".\course.ps1 stop">./course stop</code>. Keep the environment, the chapters need it.</li>
@@ -322,6 +337,9 @@ az account show --query "{name:name, state:state}" --output table
 <li><a href="https://learn.microsoft.com/cli/azure/install-azure-cli-linux">Install the Azure CLI on Linux</a> (used on the lab VM)</li>
 <li><a href="https://git-scm.com/install/windows">Install Git for Windows</a>, <a href="https://git-scm.com/install/mac">on macOS</a> and <a href="https://git-scm.com/install/linux">on Linux</a></li>
 <li><a href="https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse">Get started with OpenSSH for Windows</a></li>
+<li><a href="https://code.visualstudio.com/docs/remote/ssh">Remote development using SSH</a> (VS Code documentation)</li>
+<li><a href="https://code.visualstudio.com/docs/remote/linux">Linux prerequisites for remote development</a> (VS Code documentation)</li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">Kubernetes extension for VS Code</a> (Visual Studio Marketplace)</li>
 <li><a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a></li>
 <li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Install kubectl on Linux</a></li>
 <li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/">kind quick start</a> and <a href="https://kind.sigs.k8s.io/docs/user/known-issues/">known issues</a></li>

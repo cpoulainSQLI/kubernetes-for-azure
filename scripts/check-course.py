@@ -53,7 +53,7 @@ FILLER_WORDS = ["robust", "seamless", "seamlessly", "tailored", "foster", "foste
 PROPER_PHRASES = [
     "Azure Red Hat OpenShift", "Azure Container Registry", "Azure Kubernetes Service", "Azure Bastion",
     "Azure Static Web Apps", "Static Web Apps", "GitHub Actions",
-    "Red Hat", "Microsoft Learn", "Microsoft Entra ID", "Docker Hub", "Docker Engine", "Visual Studio",
+    "Red Hat", "Microsoft Learn", "Microsoft Entra ID", "Docker Hub", "Docker Engine", "Visual Studio", "VS Code",
     "Developer Sandbox", "Open Container Initiative", "Network Watcher", "Git Bash", "Windows PowerShell",
 ]
 PROPER_WORDS = {
@@ -425,10 +425,10 @@ class Kit:
         course_ps = (root / "course.ps1").read_text(encoding="utf-8")
         self.commands = {}
         for side in ("LAPTOP", "VM"):
-            match = re.search(rf'^{side}_COMMANDS="([a-z ]+)"$', course, re.MULTILINE)
+            match = re.search(rf'^{side}_COMMANDS="([a-z -]+)"$', course, re.MULTILINE)
             self.commands[side] = set(match.group(1).split()) if match else set()
         accepted = re.search(r"\[ValidateSet\(([^)]*)\)\]", course_ps)
-        self.ps_commands = set(re.findall(r"'([a-z]+)'", accepted.group(1))) & self.commands["LAPTOP"] if accepted else set()
+        self.ps_commands = set(re.findall(r"'([a-z-]+)'", accepted.group(1))) & self.commands["LAPTOP"] if accepted else set()
         self.ps_switches = {name.lower() for name in re.findall(r"\[switch\]\$(\w+)", course_ps)}
         scripts = [course] + [path.read_text(encoding="utf-8") for path in sorted(root.glob("lib/*.sh")) + sorted(root.glob("labs/*/*.sh"))]
         self.options = set()
@@ -446,7 +446,7 @@ def load_kit():
 
 
 # A course command starts a line of code, or follows ;, &, | or (. "shellcheck -x course setup/*.sh" is not one.
-COMMAND = re.compile(r"(?:^|[;&|(])[ \t]*(\./course|\.\\course\.ps1|course)[ \t]+([a-z]+)((?:[ \t]+(?:\d{2}|NN|-{1,2}[A-Za-z][A-Za-z-]*|N|\d))*)", re.MULTILINE)
+COMMAND = re.compile(r"(?:^|[;&|(])[ \t]*(\./course|\.\\course\.ps1|course)[ \t]+([a-z]+(?:-[a-z]+)*)((?:[ \t]+(?:\d{2}|NN|-{1,2}[A-Za-z][A-Za-z-]*|N|\d))*)", re.MULTILINE)
 
 
 def check_course_commands(path, page, kit):
