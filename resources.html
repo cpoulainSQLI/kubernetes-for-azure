@@ -3,29 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Resources | Kubernetes and ARO course</title>
+<title>Resources | Kubernetes, hands-on</title>
 <link rel="stylesheet" href="assets/course.css">
 <script src="assets/search-index.js" defer></script>
 <script src="assets/course.js" defer></script>
 </head>
 <body data-root="" data-page="resources.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
-<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<nav class="site-nav" id="site-nav" aria-label="Site"><a href="index.html">Home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">All courses</a></nav>
 <h1 id="resources">Resources</h1>
-<p>Primary sources used across the course, grouped by topic. Each chapter also lists the exact pages it relies on in its own Sources section.</p>
-<h2 id="azure-basics-not-taught-in-this-course">Azure basics (not taught in this course)</h2>
+<p>Primary sources used across the courses, grouped by topic. Each chapter also lists the exact pages it relies on in its own Sources section.</p>
+<h2 id="azure-basics-not-taught-in-this-course">Azure basics (not taught in the courses)</h2>
 <ul>
 <li><a href="https://learn.microsoft.com/training/paths/az-900-describe-cloud-concepts/">Microsoft Learn: Azure Fundamentals learning path</a>. Use it if subscriptions, resource groups or regions are new to you.</li>
-<li><a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>. The source of every price quoted in the course.</li>
+<li><a href="https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a>. The source of every Azure price quoted in the courses.</li>
 </ul>
 <h2 id="your-own-computer">Your own computer</h2>
 <ul>
-<li><a href="https://learn.microsoft.com/cli/azure/install-azure-cli">Install the Azure CLI on Windows, macOS or Linux</a>. Needed for the <a href="setup.html">setup</a>.</li>
-<li><a href="https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse">Get started with OpenSSH for Windows</a>. The SSH client that the PowerShell scripts use.</li>
+<li><a href="https://learn.microsoft.com/windows/wsl/install">How to install Linux on Windows with WSL</a>. Where course 1 runs on Windows.</li>
+<li><a href="https://learn.microsoft.com/cli/azure/install-azure-cli">Install the Azure CLI on Windows, macOS or Linux</a>. Needed for the courses that run on Azure.</li>
 <li><a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a>. Why Windows asks you to allow the course scripts.</li>
 </ul>
 <h2 id="cost-and-guardrails">Cost and guardrails</h2>
@@ -40,11 +40,11 @@
 <li><a href="https://docs.docker.com/get-started/docker-overview/">Docker overview</a>. Images, containers and registries.</li>
 <li><a href="https://docs.docker.com/reference/dockerfile/">Dockerfile reference</a>. Every instruction used in chapter 1.</li>
 <li><a href="https://docs.docker.com/build/building/multi-stage/">Multi-stage builds</a> and <a href="https://docs.docker.com/build/cache/">build cache</a>. How to keep images small and builds fast.</li>
-<li><a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker Engine on Ubuntu</a>. How the lab VM gets Docker.</li>
-<li><a href="https://docs.podman.io/">Podman documentation</a>. The daemonless container engine you meet again with OpenShift in chapter 7.</li>
+<li><a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker Engine on Ubuntu</a>. How the environment of course 1 gets Docker.</li>
+<li><a href="https://docs.podman.io/">Podman documentation</a>. The daemonless container engine you meet again with OpenShift.</li>
 <li><a href="https://github.com/opencontainers/image-spec">Open Container Initiative image specification</a>. The standard image format that Docker, Podman, Kubernetes and OpenShift all share.</li>
 <li><a href="https://learn.microsoft.com/azure/container-registry/">Azure Container Registry documentation</a>. Push and pull images, service tiers and authentication.</li>
-<li><a href="https://learn.microsoft.com/azure/container-registry/container-registry-authentication-managed-identity">Use a managed identity to authenticate to Azure Container Registry</a>. How the lab VM signs in without a password.</li>
+<li><a href="https://learn.microsoft.com/azure/container-registry/container-registry-authentication-managed-identity">Use a managed identity to authenticate to Azure Container Registry</a>. How a VM or a cluster signs in to a registry without a password.</li>
 </ul>
 <h2 id="kubernetes">Kubernetes</h2>
 <ul>
@@ -53,15 +53,15 @@
 <li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/">Kubernetes object management</a>. Imperative commands compared with declarative configuration.</li>
 <li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployments</a> and <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Services</a>. The two objects at the heart of chapter 2.</li>
 <li><a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubectl quick reference</a>. Commands worth keeping open in a tab.</li>
-<li><a href="https://kind.sigs.k8s.io/">kind documentation</a>. Local Kubernetes clusters in containers, used in chapters 2 to 5.</li>
+<li><a href="https://kind.sigs.k8s.io/">kind documentation</a>. Local Kubernetes clusters in containers, used in course 1.</li>
 </ul>
 <h2 id="openshift-outside-azure-red-hat">OpenShift outside Azure (Red Hat)</h2>
 <ul>
 <li><a href="https://www.redhat.com/en/blog/openshift-and-kubernetes-whats-difference">OpenShift and Kubernetes: what's the difference?</a> Kubernetes as the kernel, OpenShift as the distribution, OKD as the community upstream. Use it for the mental model of where OpenShift sits.</li>
 <li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.1/html/cli_reference/usage-oc-kubectl">Usage of oc and kubectl commands</a>. Why kubectl works on OpenShift and what <code>oc</code> adds. The page found is an old version: check the latest version before quoting details.</li>
 <li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.5/html-single/architecture/index">OpenShift Container Platform architecture</a>. RHCOS, CRI-O, operators that manage the platform, OperatorHub. Old version found: use the latest docs for anything version-sensitive.</li>
-<li><a href="https://developers.redhat.com/blog/2020/10/26/adapting-docker-and-kubernetes-containers-to-run-on-red-hat-openshift-container-platform">Adapting Docker and Kubernetes containers to run on OpenShift</a>. Arbitrary user IDs and ports above 1023. Written in 2020: check it against current documentation in chapter 7.</li>
-<li><a href="https://developers.redhat.com/developer-sandbox">Developer Sandbox for Red Hat OpenShift</a>. Free shared OpenShift cluster with a Red Hat account, used in chapter 7.</li>
+<li><a href="https://developers.redhat.com/blog/2020/10/26/adapting-docker-and-kubernetes-containers-to-run-on-red-hat-openshift-container-platform">Adapting Docker and Kubernetes containers to run on OpenShift</a>. Arbitrary user IDs and ports above 1023. Written in 2020: check it against current documentation.</li>
+<li><a href="https://developers.redhat.com/developer-sandbox">Developer Sandbox for Red Hat OpenShift</a>. Free shared OpenShift cluster with a Red Hat account.</li>
 </ul>
 <h2 id="azure-red-hat-openshift-microsoft-learn">Azure Red Hat OpenShift (Microsoft Learn)</h2>
 <ul>
@@ -84,8 +84,8 @@
 </ul>
 <h2 id="gaps">Gaps</h2>
 <ul>
-<li>Microsoft Learn has no official side-by-side table of ARO and AKS. Chapter 10 builds one from the responsibility matrix, the support policy and the AKS documentation.</li>
-<li>Current Red Hat architecture pages are needed to replace the old 4.x links above before chapter 7 is written.</li>
+<li>Microsoft Learn has no official side-by-side table of ARO and AKS. The ARO course will build one from the responsibility matrix, the support policy and the AKS documentation.</li>
+<li>Current Red Hat architecture pages are needed to replace the old 4.x links above before the OpenShift course is written.</li>
 <li>Communities of ARO practitioners have not been researched yet.</li>
 </ul>
 </main>

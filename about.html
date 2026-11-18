@@ -3,66 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>About this course | Kubernetes and ARO course</title>
+<title>About the courses | Kubernetes, hands-on</title>
 <link rel="stylesheet" href="assets/course.css">
 <script src="assets/search-index.js" defer></script>
 <script src="assets/course.js" defer></script>
 </head>
 <body data-root="" data-page="about.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
-<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<nav class="site-nav" id="site-nav" aria-label="Site"><a href="index.html">Home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a></nav>
-<h1 id="about-this-course">About this course</h1>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">All courses</a></nav>
+<h1 id="about-the-courses">About the courses</h1>
 <h2 id="goal">Goal</h2>
-<p>Take a learner who knows basic Azure and nothing about containers to the point where they can run applications on Kubernetes, operate an Azure Red Hat OpenShift (ARO) cluster, and argue when ARO or Azure Kubernetes Service (AKS) is the better fit for a large enterprise workload.</p>
-<p>Every chapter is hands-on. The learner works on their own Azure subscription, from a small Linux lab VM, the way a platform team works, and checks their own work with a validation script. The <a href="introduction.html">Introduction</a> explains how the website and the lab kit fit together.</p>
-<h2 id="learner-profile">Learner profile</h2>
+<p>Take someone who has never used containers to the point where they can run applications on Kubernetes, then on the platforms built on it: GitOps with Argo CD, Azure Kubernetes Service (AKS), OpenShift and Azure Red Hat OpenShift (ARO).</p>
+<p>Every course is hands-on. You work in your own environment and check your own work with a validation script. The <a href="index.html#courses">catalogue</a> lists the courses.</p>
+
+<h2 id="how-the-courses-fit">How the courses fit together</h2>
 <ul>
-<li>Knows the Azure basics: the portal, subscriptions, resource groups, <code>az login</code>, and what a virtual network is.</li>
-<li>Has never built a container image and has never used Kubernetes.</li>
-<li>Is comfortable typing commands in a terminal and editing text files, but is not expected to write application code.</li>
-<li>Has an Azure subscription with a monthly credit of about 130 EUR, typically the credit included in a Visual Studio subscription, with the spending limit on.</li>
-<li>Has a computer with the Azure CLI, Terraform, Git and an SSH client. The <code>course</code> command that runs on that computer exists for PowerShell on Windows and for bash on macOS and Linux.</li>
+<li>Each course can be followed alone. A later course expects the knowledge of an earlier one, never its labs or its environment.</li>
+<li>Each course has its own lab kit and its own <code>course</code> command, so the commands of one course never touch another.</li>
+<li>The courses that need no cloud run on your own computer. Only the courses on AKS and ARO use Azure, and what they need from it (a subscription, a budget, quotas, regions) is written once for all of them.</li>
+<li>The courses do not teach Azure itself. Where an Azure basic is needed, they link to Microsoft Learn.</li>
 </ul>
-<p>The course does not teach Azure itself. Where an Azure basic is needed, it links to Microsoft Learn.</p>
-<h2 id="success-criteria">Success criteria</h2>
-<p>The course has four parts. A learner who finishes a part can do the following without a tutorial open.</p>
-<h3 id="part-1-foundations-setup-and-chapters-1-and-2">Part 1, foundations (setup and chapters 1 and 2)</h3>
-<ul>
-<li>Explain how a credit-based subscription is billed, what stops the spending, and which lab resources still cost money when the VM is stopped.</li>
-<li>Create and destroy the lab environment from code, and read a readiness report.</li>
-<li>Write a Dockerfile for a small web app, build a small non-root image, run it, read its logs and push it to Azure Container Registry.</li>
-<li>Describe the parts of a Kubernetes cluster, deploy an app declaratively with a Deployment and a Service, scale it, roll out a new version and roll it back.</li>
-</ul>
-<h3 id="part-2-kubernetes-in-practice-chapters-3-to-5">Part 2, Kubernetes in practice (chapters 3 to 5)</h3>
-<ul>
-<li>Configure an app with ConfigMaps and Secrets, give it storage, and expose it outside the cluster.</li>
-<li>Control who can do what in a cluster with namespaces and role-based access control, and run workloads with a restricted security context.</li>
-<li>Install and upgrade software with Helm, and explain what an operator does.</li>
-</ul>
-<h3 id="part-3-managed-platforms-chapters-6-and-7">Part 3, managed platforms (chapters 6 and 7)</h3>
-<ul>
-<li>Create an AKS cluster, deploy the sample app to it from Azure Container Registry, and delete the cluster cleanly.</li>
-<li>Deploy the sample app to OpenShift on the Red Hat Developer Sandbox with <code>oc</code>, and explain what OpenShift adds to Kubernetes (projects, routes, security context constraints, the web console, operators that manage the platform).</li>
-</ul>
-<h3 id="part-4-azure-red-hat-openshift-chapters-8-to-10">Part 4, Azure Red Hat OpenShift (chapters 8 to 10)</h3>
-<ul>
-<li>Explain the ARO architecture and the shared responsibility between Microsoft, Red Hat and the customer.</li>
-<li>Check the prerequisites, create an ARO cluster, deploy the sample app, and delete the cluster in the same session.</li>
-<li>Perform day-two tasks on ARO: access, monitoring, upgrades and scaling.</li>
-<li>Write a design note that compares ARO and AKS for a large enterprise workload and lists what to check before choosing.</li>
-</ul>
+
 <h2 id="out-of-scope">Out of scope</h2>
 <ul>
-<li>Azure fundamentals (covered by Microsoft Learn).</li>
+<li>Azure fundamentals, which Microsoft Learn covers.</li>
 <li>Writing application code. The sample app is provided.</li>
 <li>Installing self-managed OpenShift (installer-provisioned or user-provisioned infrastructure).</li>
 <li>OpenShift Virtualization and OpenShift AI.</li>
 <li>Preparing for a certification exam.</li>
-<li>Production hardening beyond what each chapter states. The labs are built for learning on a small budget, not as production templates.</li>
+<li>Production hardening beyond what each chapter states. The labs are built for learning, not as production templates.</li>
 </ul>
 </main>
 <aside class="page-toc" id="page-toc" aria-label="On this page"></aside>

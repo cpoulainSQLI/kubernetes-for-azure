@@ -13,13 +13,16 @@ Checks:
      old script path or mention of the former hosting left in the site.
   4. The Terraform of the hosting (infra/) tags every resource with local.tags,
      and never with the course tag of the kit.
-  5. The search index and the lab sheets are up to date.
-  6. Cross-checks against a checkout of the lab kit, found through KIT_DIR, or else in
-     the sibling folder kubernetes-for-azure-labs:
+  5. The search index and the lab sheets are up to date, and every redirect of
+     staticwebapp.config.json leads from a page that no longer exists to one that does.
+  6. Each course under courses/<name>/ has its home, Introduction and Setup pages, and is
+     cross-checked against its lab kit <name>-labs, found in the folder KITS_DIR, or else
+     next to this folder:
        - the stages of each validator match the tasks of its chapter page, and the page
          presents --guided, --deep and the broken lab with its --restore option,
        - every course command that a page shows exists in the kit, with its lab and options,
        - every data-kit path of a page exists in the kit.
+     Pages outside courses/ are checked against the kit of the first course.
 
 Optional: PRIVATE_TERMS="name one,name two" also searches for terms that must
 never appear in the course. Never write those terms in a file of the course.
@@ -27,14 +30,21 @@ Only the Python standard library is needed. Exit code 0 when no error is found, 
 """
 import importlib.util
 import ipaddress
+import json
 import os
 import re
+import subprocess
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-KIT = Path(os.environ.get("KIT_DIR") or ROOT.parent / "kubernetes-for-azure-labs").resolve()
+KITS_DIR = Path(os.environ.get("KITS_DIR") or ROOT.parent).resolve()
+# The first course. Pages outside courses/, such as the style guide, link to its kit.
+DEFAULT_COURSE = "kubernetes"
+# Folder names a kit may still have on a computer where it was cloned before its repository was renamed.
+FORMER_KIT_FOLDERS = {"kubernetes": ["kubernetes-for-azure-labs"]}
+LICENCE_NAMES = {"LICENSE", "LICENSE-CODE"}
 ARCHIVED = ("archive/lessons/", "archive/reference/", "archive/assets/", "archive/tools/")
 # Names the checks leave alone: tool folders, and what Git ignores on the author's machine. These are the local
 # notes, the agent instructions and .claude, where a coding agent keeps its settings and its working copies.
@@ -53,7 +63,7 @@ FILLER_WORDS = ["robust", "seamless", "seamlessly", "tailored", "foster", "foste
 PROPER_PHRASES = [
     "Azure Red Hat OpenShift", "Azure Container Registry", "Azure Kubernetes Service", "Azure Bastion",
     "Azure Static Web Apps", "Static Web Apps", "GitHub Actions",
-    "Red Hat", "Microsoft Learn", "Microsoft Entra ID", "Docker Hub", "Docker Engine", "Visual Studio", "VS Code",
+    "Red Hat", "Microsoft Learn", "Microsoft Entra ID", "Docker Hub", "Docker Engine", "Docker Desktop", "Visual Studio", "VS Code",
     "Developer Sandbox", "Open Container Initiative", "Network Watcher", "Git Bash", "Windows PowerShell",
 ]
 PROPER_WORDS = {
@@ -307,7 +317,7 @@ def check_text(path, text, private_terms):
     ]
     archived = is_archived(path)
     for number, line in enumerate(text.splitlines(), start=1):
-        if not archived and (chr(0x2014) in line or chr(0x2013) in line):
+        if not archived and path.name not in LICENCE_NAMES and (chr(0x2014) in line or chr(0x2013) in line):
             report(path, number, "em or en dash")
         for guid in re.findall(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", line):
             if guid.lower() not in ALLOWED_GUIDS:
@@ -344,7 +354,7 @@ def check_no_kit_files(files):
         name = relative(path)
         is_yaml = path.suffix in {".yaml", ".yml"} and not name.startswith(".github/")
         if path.suffix in KIT_SUFFIXES or path.name == "Dockerfile" or is_yaml:
-            errors.append(f"{name}: a file of the lab kit. It belongs in kubernetes-for-azure-labs")
+            errors.append(f"{name}: a file of the lab kit. It belongs in the kit of its course")
     if (ROOT / ".nojekyll").exists():
         errors.append(f".nojekyll: a leftover of {FORMER_HOSTING}")
 
@@ -387,6 +397,31 @@ def check_search_index():
         errors.append("assets/search-index.js is out of date: run python3 scripts/build-search-index.py")
 
 
+def check_redirects():
+    """Every redirect of the hosting leads from an address that no longer holds a page to a page that exists."""
+    config = ROOT / "staticwebapp.config.json"
+    if not config.is_file():
+        errors.append("staticwebapp.config.json is missing: the old addresses of the site need their redirects")
+        return
+    if config.stat().st_size > 20 * 1024:
+        errors.append("staticwebapp.config.json is larger than 20 KB, the limit of Azure Static Web Apps")
+    try:
+        routes = json.loads(config.read_text(encoding="utf-8")).get("routes", [])
+    except ValueError as problem:
+        errors.append(f"staticwebapp.config.json is not valid JSON: {problem}")
+        return
+    for route in routes:
+        source, target = route.get("route", ""), route.get("redirect", "")
+        if not target:
+            continue
+        if route.get("statusCode") != 301:
+            errors.append(f"staticwebapp.config.json: the redirect of {source} is not permanent (statusCode 301)")
+        if (ROOT / source.lstrip("/")).is_file():
+            errors.append(f"staticwebapp.config.json: {source} still exists, so its redirect hides a page")
+        if not (ROOT / target.lstrip("/")).is_file():
+            errors.append(f"staticwebapp.config.json: the redirect of {source} leads to {target}, which does not exist")
+
+
 def check_lab_sheets():
     """Every chapter has a lab sheet that matches what scripts/build-lab-sheets.py would write."""
     spec = importlib.util.spec_from_file_location("build_lab_sheets", ROOT / "scripts" / "build-lab-sheets.py")
@@ -417,32 +452,97 @@ def check_leftovers():
 
 
 class Kit:
-    """What the pages need to know about the lab kit."""
+    """What the pages of a course need to know about its lab kit."""
 
     def __init__(self, root):
         self.root = root
         course = (root / "course").read_text(encoding="utf-8")
         course_ps = (root / "course.ps1").read_text(encoding="utf-8")
-        self.commands = {}
-        for side in ("LAPTOP", "VM"):
+        self.commands = set()
+        for side in ("ENV", "LAB"):
             match = re.search(rf'^{side}_COMMANDS="([a-z -]+)"$', course, re.MULTILINE)
-            self.commands[side] = set(match.group(1).split()) if match else set()
+            self.commands |= set(match.group(1).split()) if match else set()
+        env = re.search(r'^ENV_COMMANDS="([a-z -]+)"$', course, re.MULTILINE)
+        env = set(env.group(1).split()) if env else set()
         accepted = re.search(r"\[ValidateSet\(([^)]*)\)\]", course_ps)
-        self.ps_commands = set(re.findall(r"'([a-z-]+)'", accepted.group(1))) & self.commands["LAPTOP"] if accepted else set()
+        self.ps_commands = set(re.findall(r"'([a-z-]+)'", accepted.group(1))) & env if accepted else set()
         self.ps_switches = {name.lower() for name in re.findall(r"\[switch\]\$(\w+)", course_ps)}
-        scripts = [course] + [path.read_text(encoding="utf-8") for path in sorted(root.glob("lib/*.sh")) + sorted(root.glob("labs/*/*.sh"))]
-        self.options = set()
-        for text in scripts:
-            self.options.update(re.findall(r"^\s*(?:[a-z|* -]*\| )?(--[a-z][a-z-]*)(?:=\*)?(?: \|[^)]*)?\)", text, re.MULTILINE))
         self.labs = {path.name[:2]: path for path in sorted(root.glob("labs/*")) if path.is_dir()}
         self.solutions = {path.name[:2] for path in sorted(root.glob("solutions/*")) if path.is_dir()}
+        # The options each command accepts, read from the script that parses them.
+        self.course_options = options_of(course) | options_of((root / "setup/check.sh").read_text(encoding="utf-8"))
+        engines = {"check": "lib/lib-validate.sh", "break": "lib/lib-break.sh"}
+        scripts = {"start": "setup.sh", "check": "validate.sh", "break": "break.sh", "clean": "teardown.sh"}
+        self.lab_options = {}
+        for number, lab in self.labs.items():
+            for command, script in scripts.items():
+                found = set()
+                for path in (lab / script, root / engines.get(command, script)):
+                    if path.is_file():
+                        found |= options_of(path.read_text(encoding="utf-8"))
+                self.lab_options[(command, number)] = found
+        # The files of the kit that Git tracks, so that a link never points to an untracked file or a wrong case.
+        try:
+            listing = subprocess.run(["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=True).stdout
+            self.tracked = set(listing.splitlines())
+        except (OSError, subprocess.CalledProcessError):
+            self.tracked = None
+
+    def options_for(self, command, lab):
+        """The options of a course command, for one lab or for any lab."""
+        if command in {"start", "check", "break", "clean"} and (command != "check" or lab):
+            if lab != "any":
+                return self.lab_options.get((command, lab), set())
+            return set().union(*(found for (name, _), found in self.lab_options.items() if name == command))
+        return self.course_options
 
 
-def load_kit():
-    if not (KIT / "course").is_file():
-        errors.append(f"lab kit not found at {KIT}: clone kubernetes-for-azure-labs next to this folder, or set KIT_DIR")
-        return None
-    return Kit(KIT)
+def options_of(text):
+    return set(re.findall(r"^\s*(?:[a-z|* -]*\| )?(--[a-z][a-z-]*)(?:=\*)?(?: \|[^)]*)?\)", text, re.MULTILINE))
+
+
+def course_names():
+    return sorted(path.name for path in (ROOT / "courses").iterdir() if path.is_dir()) if (ROOT / "courses").is_dir() else []
+
+
+def load_kits():
+    """The kit of each course: <name>-labs in KITS_DIR, or a former folder name of the same kit."""
+    kits = {}
+    for name in course_names():
+        for folder in [f"{name}-labs"] + FORMER_KIT_FOLDERS.get(name, []):
+            candidate = KITS_DIR / folder
+            if (candidate / "course").is_file():
+                kits[name] = Kit(candidate)
+                break
+        else:
+            errors.append(f"lab kit of courses/{name} not found: clone {name}-labs into {KITS_DIR}, or set KITS_DIR")
+    return kits
+
+
+def check_course_pages():
+    script = (ROOT / "assets/course.js").read_text(encoding="utf-8")
+    courses = re.search(r"^  var COURSES = \{\n(.*?)^  \};", script, re.S | re.M)
+    entries = dict(re.findall(r'^    ([a-z0-9-]+): \{\n      title: "[^"]+",\n      kit: "([a-z0-9-]+)"', courses.group(1), re.M)) if courses else {}
+    if not courses:
+        errors.append("assets/course.js: no COURSES map")
+    for name in course_names():
+        for page in ("index.html", "introduction.html", "setup.html"):
+            if not (ROOT / "courses" / name / page).is_file():
+                errors.append(f"courses/{name} has no {page}")
+        if name not in entries:
+            errors.append(f"courses/{name} has no entry in COURSES of assets/course.js")
+        elif entries[name] != f"{name}-labs":
+            errors.append(f"assets/course.js: the kit of courses/{name} is {entries[name]}, not {name}-labs")
+    for name in entries:
+        if name not in course_names():
+            errors.append(f"assets/course.js: COURSES names {name}, which has no folder courses/{name}")
+
+
+def kit_of(path, kits):
+    """The kit that the links and commands of a page refer to."""
+    parts = path.relative_to(ROOT).parts
+    name = parts[1] if len(parts) > 2 and parts[0] == "courses" else DEFAULT_COURSE
+    return kits.get(name)
 
 
 # A course command starts a line of code, or follows ;, &, | or (. "shellcheck -x course setup/*.sh" is not one.
@@ -462,15 +562,15 @@ def check_course_commands(path, page, kit):
                     if option.lstrip("-").lower() not in kit.ps_switches:
                         report(path, line, f"'{shown}': course.ps1 has no parameter {option}")
                 continue
-            sides = kit.commands["LAPTOP"] if form == "./course" else kit.commands["LAPTOP"] | kit.commands["VM"]
-            if command not in sides:
+            if command not in kit.commands:
                 report(path, line, f"'{shown}': the course command of the kit has no command {command}")
                 continue
-            for option in (word for word in rest if word.startswith("--")):
-                if option not in kit.options:
-                    report(path, line, f"'{shown}': the kit has no option {option}")
             numbers = [word for word in rest if re.fullmatch(r"\d{2}", word)]
-            if command in {"start", "check", "break", "clean", "solution"} and numbers and form == "course":
+            accepted = kit.options_for(command, numbers[0] if numbers else ("any" if "NN" in rest else None))
+            for option in (word for word in rest if word.startswith("--")):
+                if option not in accepted:
+                    report(path, line, f"'{shown}': course {command} of the kit has no option {option}")
+            if command in {"start", "check", "break", "clean", "solution"} and numbers:
                 lab = numbers[0]
                 if lab not in kit.labs:
                     report(path, line, f"'{shown}': the kit has no lab {lab}")
@@ -485,19 +585,24 @@ def check_kit_links(path, page, kit):
         if tag != "a":
             report(path, line, f"data-kit on a {tag} element: use it on links only")
         target = (kit.root / value).resolve() if value not in {"", "."} else kit.root
+        if value not in {"", "."} and kit.tracked is not None:
+            wanted = value.rstrip("/")
+            if not any(name == wanted or name.startswith(wanted + "/") for name in kit.tracked):
+                report(path, line, f"data-kit path not tracked by Git in the lab kit: {value}")
+                continue
         if not target.exists():
             report(path, line, f"data-kit path not found in the lab kit: {value}")
         elif value.endswith("/") != target.is_dir() and value not in {"", "."}:
             report(path, line, f"data-kit path {value}: end a folder with a slash, and a file without one")
 
 
-def check_lab_pages(kit):
-    """Each lab of the kit has a chapter page whose tasks match its validator stages."""
-    pages = {path.parent.name: path for path in sorted(ROOT.glob("chapters/*/index.html"))}
+def check_lab_pages(name, kit):
+    """Each lab of the kit of a course has a chapter page whose tasks match its validator stages."""
+    pages = {path.parent.name: path for path in sorted(ROOT.glob(f"courses/{name}/chapters/*/index.html"))}
     for number, lab in sorted(kit.labs.items()):
         page = pages.get(lab.name)
         if not page:
-            errors.append(f"lab {lab.name} of the kit has no page chapters/{lab.name}/index.html")
+            errors.append(f"lab {lab.name} of the kit has no page courses/{name}/chapters/{lab.name}/index.html")
             continue
         text = page.read_text(encoding="utf-8")
         validator = (lab / "validate.sh").read_text(encoding="utf-8") if (lab / "validate.sh").is_file() else ""
@@ -506,15 +611,15 @@ def check_lab_pages(kit):
         tasks = re.search(r'<h3 id="tasks">.*?<ol>(.*?)</ol>', text, re.S)
         listed = len(re.findall(r"<li>", tasks.group(1))) if tasks else 0
         if count != listed:
-            errors.append(f"stages: the kit's labs/{lab.name}/validate.sh has {count} stages and {relative(page)} lists {listed} tasks")
+            errors.append(f"stages: labs/{lab.name}/validate.sh of the kit has {count} stages and {relative(page)} lists {listed} tasks")
         for option in ("--guided", "--deep"):
             if option not in text:
                 errors.append(f"stages: {relative(page)} does not mention {option}")
         if (lab / "break.sh").is_file() and f"course break {number} --restore" not in text:
             errors.append(f"broken lab: {relative(page)} does not present course break {number} and its --restore option")
-    for name, page in pages.items():
-        if name[:2] not in kit.labs:
-            errors.append(f"{relative(page)}: the kit has no folder labs/{name}")
+    for folder, page in pages.items():
+        if folder[:2] not in kit.labs:
+            errors.append(f"{relative(page)}: the kit has no folder labs/{folder}")
 
 
 def main():
@@ -541,20 +646,23 @@ def main():
     check_hosting_terraform()
     check_search_index()
     check_lab_sheets()
+    check_redirects()
     check_leftovers()
+    check_course_pages()
 
-    kit = load_kit()
-    if kit:
-        for path, page in sorted(pages.items()):
-            if page is not None and not is_archived(path):
-                check_course_commands(path, page, kit)
-                check_kit_links(path, page, kit)
-        check_lab_pages(kit)
+    kits = load_kits()
+    for path, page in sorted(pages.items()):
+        kit = kit_of(path, kits)
+        if kit and page is not None and not is_archived(path):
+            check_course_commands(path, page, kit)
+            check_kit_links(path, page, kit)
+    for name, kit in sorted(kits.items()):
+        check_lab_pages(name, kit)
 
     for error in errors:
         print(f"[FAIL] {error}")
     print(f"\nChecked {len(files)} files ({len([p for p in files if p.suffix == '.html' and not is_archived(p)])} pages) "
-          f"against the lab kit in {KIT}, {len(errors)} errors"
+          f"against {len(kits)} lab kit(s) in {KITS_DIR}, {len(errors)} errors"
           + (f", with {len(private_terms)} private terms" if private_terms else ", without PRIVATE_TERMS") + ".")
     return 1 if errors else 0
 

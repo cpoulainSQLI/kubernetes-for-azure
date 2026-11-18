@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sample app | Kubernetes and ARO course</title>
-<link rel="stylesheet" href="../assets/course.css">
-<script src="../assets/search-index.js" defer></script>
-<script src="../assets/course.js" defer></script>
+<title>Sample app | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="../../../assets/course.css">
+<script src="../../../assets/search-index.js" defer></script>
+<script src="../../../assets/course.js" defer></script>
 </head>
-<body data-root="../" data-page="sample-app/index.html">
+<body data-root="../../../" data-page="courses/kubernetes/sample-app/index.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="../../../index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
-<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../index.html">Course home</a></nav>
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../../index.html">Course home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../index.html">Home</a></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../index.html">Containers and Kubernetes</a></nav>
 <h1 id="sample-app">Sample app</h1>
 <p>A small web application written in Go, using only the Go standard library. You build it into a container image in chapter 1, deploy it to Kubernetes in chapter 2 and reuse it in later chapters.</p>
 <p>You do not need to know Go. You only need to know how the app behaves and how to build it.</p>
@@ -70,14 +70,14 @@
 </table>
 <p>The app never needs to write to disk and never needs root privileges, so it runs as any non-root user.</p>
 <h2 id="build-it-without-containers-optional">Build it without containers (optional)</h2>
-<p>If Go is installed on a machine, these commands build and test the app. The lab VM does not need Go, because the build happens inside a container in chapter 1.</p>
+<p>If Go is installed on a machine, these commands build and test the app. The environment of the course does not need Go, because the build happens inside a container in chapter 1.</p>
 <pre><code class="language-bash">go test ./...
 CGO_ENABLED=0 go build -ldflags &quot;-X main.version=1.0.0&quot; -o sample-app .
 ./sample-app
 </code></pre>
 <p><code>CGO_ENABLED=0</code> produces a static binary, which means the binary does not depend on any library from the operating system it runs on.</p>
 <h2 id="files">Files</h2>
-<p>The app is in the <a data-kit="sample-app/">sample-app folder</a> of the kit. <code>course start 01</code> copies it to <code>~/work/01-containers/sample-app</code> on the lab VM.</p>
+<p>The app is in the <a data-kit="sample-app/">sample-app folder</a> of the kit. <code>course start 01</code> copies it to <code>~/work/01-containers/sample-app</code> in the environment of the course.</p>
 <ul>
 <li><a data-kit="sample-app/main.go">main.go</a> is the application.</li>
 <li><a data-kit="sample-app/main_test.go">main_test.go</a> holds three small tests.</li>

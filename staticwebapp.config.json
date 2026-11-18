@@ -1,0 +1,14 @@
+{
+  "routes": [
+    { "route": "/introduction.html", "redirect": "/courses/kubernetes/introduction.html", "statusCode": 301 },
+    { "route": "/setup.html", "redirect": "/courses/kubernetes/setup.html", "statusCode": 301 },
+    { "route": "/chapters/01-containers/index.html", "redirect": "/courses/kubernetes/chapters/01-containers/index.html", "statusCode": 301 },
+    { "route": "/chapters/01-containers/lab-sheet.html", "redirect": "/courses/kubernetes/chapters/01-containers/lab-sheet.html", "statusCode": 301 },
+    { "route": "/chapters/02-kubernetes-core/index.html", "redirect": "/courses/kubernetes/chapters/02-kubernetes-core/index.html", "statusCode": 301 },
+    { "route": "/chapters/02-kubernetes-core/lab-sheet.html", "redirect": "/courses/kubernetes/chapters/02-kubernetes-core/lab-sheet.html", "statusCode": 301 },
+    { "route": "/solutions/index.html", "redirect": "/courses/kubernetes/solutions/index.html", "statusCode": 301 },
+    { "route": "/solutions/01-containers/index.html", "redirect": "/courses/kubernetes/solutions/01-containers/index.html", "statusCode": 301 },
+    { "route": "/solutions/02-kubernetes-core/index.html", "redirect": "/courses/kubernetes/solutions/02-kubernetes-core/index.html", "statusCode": 301 },
+    { "route": "/sample-app/index.html", "redirect": "/courses/kubernetes/sample-app/index.html", "statusCode": 301 }
+  ]
+}

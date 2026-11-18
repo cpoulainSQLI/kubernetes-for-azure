@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lab sheet, chapter 1 | Kubernetes and ARO course</title>
-<link rel="stylesheet" href="../../assets/course.css">
-<script src="../../assets/search-index.js" defer></script>
-<script src="../../assets/course.js" defer></script>
+<title>Lab sheet, chapter 1 | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="../../../../assets/course.css">
+<script src="../../../../assets/search-index.js" defer></script>
+<script src="../../../../assets/course.js" defer></script>
 </head>
-<body class="sheet" data-root="../../" data-page="chapters/01-containers/lab-sheet.html">
+<body class="sheet" data-root="../../../../" data-page="courses/kubernetes/chapters/01-containers/lab-sheet.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="../../../../index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
 <nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="index.html">Chapter 1: containers</a></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Containers and Kubernetes</a> / <a href="index.html">Chapter 1: containers</a></nav>
 <h1 id="lab-sheet">Lab sheet, chapter 1</h1>
 <p class="lede">The lab of <a href="index.html">chapter 1: containers</a> on one page: tasks, acceptance criteria, commands and clean-up. The explanations are in the chapter. This page is generated from it.</p>
 <h2 id="lab">Lab</h2>
@@ -99,7 +99,7 @@ course check 01 --deep
 # 5. Clean up, once the report passes: removes the container and the registry
 course clean 01
 </code></pre>
-<p><code>course start 01</code> signs the Azure CLI in with the VM's managed identity, creates the registry with Terraform from <a data-kit="labs/01-containers/infra/main.tf">labs/01-containers/infra/main.tf</a> in the kit and prints its login server. Terraform signs in with the same identity and keeps the state of the registry in the storage account that <code>course up</code> created, so <code>course clean 01</code> deletes exactly what <code>course start 01</code> created. Keep the local images when you are done: chapter 2 uses them.</p>
+<p><code>course start 01</code> signs the Azure CLI in with the VM's managed identity, creates the registry with Terraform from <a data-kit="extras/azure-lab-vm/labs/01-containers/infra/main.tf">its Terraform file</a>, now kept in the extras of the kit, and prints its login server. Terraform signs in with the same identity and keeps the state of the registry in the storage account that <code>course up</code> created, so <code>course clean 01</code> deletes exactly what <code>course start 01</code> created. Keep the local images when you are done: chapter 2 uses them.</p>
 <p>Each task has two hints, to open one at a time. If you are still stuck after 20 minutes, compare with the <a href="../../solutions/01-containers/index.html">reference solution</a>. <code>course solution 01</code> copies it into your work folder after asking, and keeps your own file aside.</p>
 <h3 id="how-the-validation-works">How the validation works</h3>
 <p>The guided check shows one stage at a time: the task, then where you stand. Do the task in a second terminal, which you open from your own computer with <code data-ps=".\course.ps1 connect">./course connect</code>, then press Enter to check. A check that fails comes with a hint. Quit with <code>q</code> whenever you like: the script keeps no state and reads your work each time, so the next run resumes at the first stage that does not pass.</p>

@@ -1,54 +1,64 @@
-/* Kubernetes and Azure Red Hat OpenShift, hands-on: shared behaviour for every page.
+/* Kubernetes, hands-on: shared behaviour for every page of the catalogue and of each course.
    Plain JavaScript, no library, so the pages also work when opened from disk. */
 (function () {
   "use strict";
 
-  var COURSE_TITLE = "Kubernetes and Azure Red Hat OpenShift, hands-on";
-  var PLATFORM_KEY = "aroK8sCourse.platform";
+  var SITE_TITLE = "Kubernetes, hands-on";
+  var PLATFORM_KEY = "kubernetesHandsOn.platform";
   var PLATFORMS = [
     { id: "windows", label: "Windows" },
     { id: "macos", label: "macOS" },
     { id: "linux", label: "Linux" }
   ];
 
-  // Single source for the navigation of every page. Paths are relative to the course root.
-  var NAV = [
-    { title: "Home", href: "index.html" },
-    { title: "About this course", href: "about.html" },
-    { group: "Start here", items: [
-      { title: "Introduction", href: "introduction.html" },
-      { title: "Setup", href: "setup.html" }
-    ] },
-    { group: "Part 1, foundations", items: [
-      { title: "1. Containers", href: "chapters/01-containers/index.html" },
-      { title: "2. Kubernetes core", href: "chapters/02-kubernetes-core/index.html" }
-    ] },
-    { group: "Part 2, Kubernetes in practice", items: [
-      { title: "3. Configuration, storage and exposure" },
-      { title: "4. Access and security" },
-      { title: "5. Helm and operators" }
-    ] },
-    { group: "Part 3, managed platforms", items: [
-      { title: "6. Azure Kubernetes Service" },
-      { title: "7. OpenShift on the Developer Sandbox" }
-    ] },
-    { group: "Part 4, Azure Red Hat OpenShift", items: [
-      { title: "8. ARO architecture and first cluster" },
-      { title: "9. Operating ARO" },
-      { title: "10. ARO compared with AKS" }
-    ] },
-    { group: "Reference", items: [
-      { title: "Sample app", href: "sample-app/index.html" },
-      { title: "Reference solutions", href: "solutions/index.html" },
-      { title: "Quotas, regions and providers", href: "azure-limits.html" },
-      { title: "Resources", href: "resources.html" },
-      { title: "Style guide for contributors", href: "style-guide.html" }
-    ] }
+  // The pages shared by every course. Paths are relative to the root of the site.
+  var SHARED_ITEMS = [
+    { title: "All courses", href: "index.html" },
+    { title: "About the courses", href: "about.html" },
+    { title: "Resources", href: "resources.html" },
+    { title: "Quotas, regions and providers", href: "azure-limits.html" },
+    { title: "Style guide for contributors", href: "style-guide.html" }
   ];
+
+  // One entry per course that has pages, under courses/<name>/. Its lab kit is the repository <name>-labs,
+  // and data-kit links on its pages point there. The catalogue on the home page lists the other courses.
+  var COURSES = {
+    kubernetes: {
+      title: "Containers and Kubernetes",
+      kit: "kubernetes-labs",
+      nav: [
+        { title: "Course home", href: "courses/kubernetes/index.html" },
+        { group: "Start here", items: [
+          { title: "Introduction", href: "courses/kubernetes/introduction.html" },
+          { title: "Setup", href: "courses/kubernetes/setup.html" }
+        ] },
+        { group: "Chapters", items: [
+          { title: "1. Containers", href: "courses/kubernetes/chapters/01-containers/index.html" },
+          { title: "2. Kubernetes core", href: "courses/kubernetes/chapters/02-kubernetes-core/index.html" },
+          { title: "3. Configuration, storage and exposure" },
+          { title: "4. Other workloads" },
+          { title: "5. Access and security" },
+          { title: "6. Packaging with Helm, Kustomize and operators" },
+          { title: "7. Debugging a broken application" }
+        ] },
+        { group: "Reference", items: [
+          { title: "Sample app", href: "courses/kubernetes/sample-app/index.html" },
+          { title: "Reference solutions", href: "courses/kubernetes/solutions/index.html" }
+        ] },
+        { group: SITE_TITLE, items: SHARED_ITEMS }
+      ]
+    }
+  };
+  // Shared pages, such as the style guide, link to the kit of the first course.
+  var DEFAULT_KIT = "kubernetes-labs";
 
   var body = document.body;
   var root = body.getAttribute("data-root") || "";
   var page = body.getAttribute("data-page") || "index.html";
+  var courseMatch = /^courses\/([a-z0-9-]+)\//.exec(page);
+  var course = courseMatch ? COURSES[courseMatch[1]] : null;
+  var NAV = course ? course.nav : [{ title: "Home", href: "index.html" }, { group: "The site", items: SHARED_ITEMS.slice(1) }];
+  var KIT_REPOSITORY = course ? course.kit : DEFAULT_KIT;
   document.documentElement.classList.add("js");
 
   function el(tag, attrs, children) {
@@ -89,9 +99,9 @@
     });
     var brand = el("a", { "class": "brand", href: root + "index.html" }, [
       el("span", { "class": "brand-mark", "aria-hidden": "true", text: "K8s" }),
-      el("span", { "class": "brand-title", text: COURSE_TITLE })
+      el("span", { "class": "brand-title", text: course ? SITE_TITLE + ": " + course.title : SITE_TITLE })
     ]);
-    var searchInput = el("input", { type: "search", id: "course-search", placeholder: "Search the course", "aria-label": "Search the course", autocomplete: "off" });
+    var searchInput = el("input", { type: "search", id: "course-search", placeholder: "Search the site", "aria-label": "Search the site", autocomplete: "off" });
     var results = el("ul", { "class": "search-results", id: "search-results", hidden: "" });
     var search = el("div", { "class": "search", role: "search" }, [searchInput, results]);
     var select = el("select", { id: "platform-select", "aria-label": "Your computer" });
@@ -313,7 +323,6 @@
   // whole kit. assets/kit.js names the GitHub account that hosts the kit. The deployment writes it, and it is
   // never committed. Without it, for example when a page is opened from disk, the links show <account> in
   // their address and the page says why. An element with data-kit-owner gets <account> replaced in its text.
-  var KIT_REPOSITORY = "kubernetes-for-azure-labs";
   var KIT_BRANCH = "main";
 
   function kitUrl(owner, path) {
@@ -345,7 +354,7 @@
     if ((links.length || filled.length) && heading) {
       heading.parentNode.insertBefore(el("p", { "class": "callout kit-note", text:
         "Links to the lab kit point to github.com/<account>/" + KIT_REPOSITORY + ". This copy of the site does not know " +
-        "the account, so replace <account> with the GitHub account that publishes the course." }), heading.nextSibling);
+        "the account, so replace <account> with the GitHub account that publishes the courses." }), heading.nextSibling);
     }
   }
 
@@ -363,7 +372,7 @@
     if (!footer) { return; }
     footer.innerHTML = "";
     footer.appendChild(el("p", {}, [
-      document.createTextNode(COURSE_TITLE + ". Prices and product facts are checked against the sources listed on each page. "),
+      document.createTextNode(SITE_TITLE + ". Prices and product facts are checked against the sources listed on each page. "),
       el("a", { href: root + "style-guide.html", text: "Style guide for contributors" })
     ]));
   }

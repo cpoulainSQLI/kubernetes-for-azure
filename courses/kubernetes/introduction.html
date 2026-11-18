@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Introduction | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body data-root="../../" data-page="courses/kubernetes/introduction.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Containers and Kubernetes</a> / <a href="index.html#outline">Start here</a></nav>
+<h1 id="introduction">Introduction</h1>
+<p class="lede">What the course builds, who it is for, how the website and the lab kit fit together, and how a lab works. Read this page before the <a href="setup.html">Setup</a>.</p>
+
+<h2 id="what-the-course-builds">What the course builds</h2>
+<p>You start with a small web app and build your first container image from it. You run the image, push it to a registry, and then run the same app on a Kubernetes cluster: you deploy it, expose it, scale it, roll out a new version and roll it back. Later chapters add configuration and storage, other kinds of workloads, access control, packaging, and the debugging of an app that does not start.</p>
+<p>Every chapter ends with a lab on your own computer. A script checks your work task by task and tells you what to fix. The <a href="index.html#outline">outline</a> lists the chapters.</p>
+
+<h2 id="who-it-is-for">Who it is for</h2>
+<p>You can type commands in a terminal and edit text files. You have never built a container image or used Kubernetes. You do not need to write application code, and you do not need a cloud account: the whole course runs on your computer and costs nothing.</p>
+
+<h2 id="two-repositories">The website and the lab kit</h2>
+<p>The course lives in two Git repositories.</p>
+<ul>
+<li>The website is what you are reading. It holds the explanations, the lab tasks and their hints, and the reference solutions explained step by step. You never need a copy of it.</li>
+<li>The lab kit is the repository <a data-kit=".">kubernetes-labs</a>. It holds what you run: the <code>course</code> command, the scripts that build your environment and that set up and check each lab, the sample app and the files of the reference solutions. You clone it on your computer.</li>
+</ul>
+<p>Follow the <code>main</code> branch of the kit. <code>course update</code> brings your clone up to date. Your work is not part of the kit, so an update never changes it.</p>
+
+<h2 id="how-a-lab-works">How a lab works</h2>
+<p>The labs run in a Linux shell with Docker Engine, kind, kubectl and a small registry. kind runs a whole Kubernetes cluster as a few Docker containers on your computer. On Windows, the shell is a WSL distribution that the course creates and keeps for itself, and kind documents how it runs in WSL 2. On Linux, it is your machine. The <a href="setup.html">Setup</a> page builds it with one command.</p>
+<p>Use the picker at the top of the page to choose your computer. Only the commands that build the environment differ between Windows and Linux. The labs themselves always run in the Linux shell.</p>
+<p>Every lab follows the same steps. With lab <code>01</code> as the example:</p>
+<ol>
+<li><code>course start 01</code> prepares what the lab needs and copies its starting files to <code>~/work/01-containers</code>. Run it again whenever you come back: it brings the lab back and tells you which task is next.</li>
+<li>You do the tasks of the chapter. They are goals with acceptance criteria, not commands to copy, and each task has two hints that you open when you need them.</li>
+<li><code>course check 01</code> reads your files and the state of your work, and prints <code>[PASS]</code>, <code>[FAIL]</code> or <code>[WARN]</code> for each criterion, with a hint for each failure. <code>--guided</code> follows you task by task, and <code>--deep</code> adds live tests. Without <code>--deep</code> the check never changes anything.</li>
+<li><code>course break 01</code> puts one fault into your finished lab, and you find and repair it.</li>
+<li><code>course clean 01</code> removes what the lab created. Your files and the registry stay.</li>
+</ol>
+<p>The <a href="solutions/index.html">reference solutions</a> show one way to pass each lab. Look at them after you have tried, not before.</p>
+
+<h2 id="what-it-costs">What it costs</h2>
+<p>Nothing. The course needs no cloud account, and every tool it installs is free. It needs disk space, about 10 GB, and an internet connection to download the tools and the images the first time.</p>
+<p>Docker Desktop is not needed. If you already use it, it can stay installed. On Windows, the distribution of the course has its own Docker Engine, apart from Docker Desktop. Docker Desktop is free only for some uses, such as personal use, education and businesses below a size limit, and the course does not depend on it. <a href="https://docs.docker.com/subscription/desktop-license/">Docker Desktop license agreement</a></p>
+
+<h2 id="sources">Sources</h2>
+<ul>
+<li><a href="https://kind.sigs.k8s.io/docs/user/using-wsl2/">kind, using WSL2</a> and <a href="https://kind.sigs.k8s.io/docs/user/local-registry/">kind, local registry</a></li>
+<li><a href="https://docs.docker.com/subscription/desktop-license/">Docker Desktop license agreement</a></li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

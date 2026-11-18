@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="../../assets/course.css">
+<script src="../../assets/search-index.js" defer></script>
+<script src="../../assets/course.js" defer></script>
+</head>
+<body data-root="../../" data-page="courses/kubernetes/setup.html">
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes, hands-on</a></header>
+<div class="layout">
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<main id="main" class="content">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Containers and Kubernetes</a> / <a href="index.html#outline">Start here</a></nav>
+<h1 id="setup">Setup</h1>
+<p class="lede">Every lab of this course runs on your own computer, in a Linux shell with Docker Engine, kind, kubectl and a small registry. One command builds that environment for you. This page explains what it creates on Windows and on Linux, then has you run it and check that everything is ready. Read the <a href="introduction.html">Introduction</a> first.</p>
+
+<h2 id="what-you-will-have">What you will have at the end</h2>
+<ul>
+<li>You have a clone of the <a data-kit=".">lab kit</a> on your computer.</li>
+<li>You have the environment of the course. On Windows it is a WSL distribution named <code>kubernetes-labs</code>, kept for the course. On Linux it is your machine.</li>
+<li>The environment has Docker Engine, kind and kubectl at the versions the course pins, and a registry that answers on <code>localhost:5001</code>.</li>
+<li>The readiness report shows no <code>[FAIL]</code>.</li>
+</ul>
+
+<h2 id="before-you-start">Before you start</h2>
+<p>Use the picker at the top of the page to choose your computer. The steps that differ show the right variant.</p>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows">
+<ul>
+<li>You need Windows 11, or Windows 10 version 2004 or later, with WSL 2. If <code>wsl --status</code> fails in PowerShell, install WSL once from a PowerShell window opened with "Run as administrator", with <code>wsl --install --no-distribution</code>, then restart Windows. Without <code>--no-distribution</code>, that command also installs an Ubuntu distribution that the course does not use. This is the only step that needs administrator rights. <a href="https://learn.microsoft.com/windows/wsl/install">How to install Linux on Windows with WSL</a>, <a href="https://learn.microsoft.com/windows/wsl/basic-commands">Basic commands for WSL</a></li>
+<li>If WSL is already installed, bring it up to date with <code>wsl --update</code>. An old WSL may not know the options that <code>course up</code> uses. Which version is the oldest that works is not verified.</li>
+<li>You need Git to clone the kit. <a href="https://git-scm.com/install/windows">Install Git for Windows</a></li>
+<li>You need about 10 GB of free disk space. After the first two labs, the distribution took 8 GB on the computer where the course was tested.</li>
+<li>The computer must reach the Ubuntu archive, download.docker.com, pkgs.k8s.io, GitHub and Docker Hub. An office proxy may block some of them, and this case is not tested yet.</li>
+</ul>
+</div>
+<div class="tab-panel" data-os="linux" data-label="Linux">
+<ul>
+<li>On Ubuntu or Debian, with sudo rights, <code>./course up</code> installs the tools. On another distribution, install them yourself first: Docker Engine, kind and kubectl at the versions the course pins, plus git, curl, jq, Python 3 and its YAML module. Then <code>./course up</code> checks them. Linux is not tested yet.</li>
+<li>You need Git to clone the kit.</li>
+<li>You need about 10 GB of free disk space for the images and the cluster.</li>
+</ul>
+</div>
+<div class="tab-panel" data-os="macos" data-label="macOS">
+<ul>
+<li>macOS is not tested yet. <code>./course up</code> installs nothing on a Mac. Install a Docker engine, kind, kubectl, git, curl, jq, Python 3 and its YAML module yourself, then <code>./course up</code> checks them and creates the registry.</li>
+<li>You need Git to clone the kit.</li>
+</ul>
+</div>
+</div>
+
+<h2 id="get-the-kit">Get the kit</h2>
+<p>Clone the <a data-kit=".">lab kit</a> on your computer, in a folder of your choice. The commands are the same in PowerShell and in bash:</p>
+<pre><code class="language-bash" data-kit-owner>git clone https://github.com/&lt;account&gt;/kubernetes-labs.git
+cd kubernetes-labs
+</code></pre>
+<p>Every command of this section and the next runs from that folder. On Windows, the WSL distribution clones the kit again inside itself, from the same address, so a fork must be public.</p>
+
+<h2 id="build-the-environment">Build the environment</h2>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<p>Windows blocks scripts by default. This command allows them in the current PowerShell window only. <a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a></p>
+<pre><code class="language-powershell">Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.\course.ps1 up
+</code></pre>
+<p><code>.\course.ps1 up</code> says what it creates and asks first. Then it:</p>
+<ol>
+<li>Writes the instructions for cloud-init in the <code>.cloud-init</code> folder of your Windows profile, and creates the distribution <code>kubernetes-labs</code> from stock Ubuntu with <code>wsl --install --no-launch</code>.</li>
+<li>Starts it once. cloud-init creates the Linux user <code>learner</code>, with sudo and no password, runs the <a data-kit="setup/install-tools.sh">install script</a> of the kit, clones the kit into <code>~/kubernetes-labs</code> and puts the <code>course</code> command on the path (<a data-kit="setup/cloud-init.yaml">cloud-init file</a>, <a data-kit="setup/wsl-environment.sh">environment script</a>).</li>
+<li>Restarts the distribution once, so that it logs in as <code>learner</code>, then creates the registry.</li>
+</ol>
+<p>The first run took about 2 minutes on the computer where the course was tested. A second run only checks, and takes a few seconds. Apart from the cloud-init file in your profile, <code>course up</code> changes nothing on Windows: the distribution has its own Docker Engine.</p>
+</div>
+<div class="tab-panel" data-os="linux" data-label="Linux (bash)">
+<pre><code class="language-bash">./course up
+</code></pre>
+<p><code>./course up</code> lists the tools that are missing or at another version, and what it would install: Docker Engine from the repository of Docker, kubectl from the repository of Kubernetes, kind from its release on GitHub after checking the checksum published with it, and a few small tools. It asks before it installs anything, with sudo, through the <a data-kit="setup/install-tools.sh">install script</a> of the kit. It then creates the registry, and offers to put a <code>course</code> command in <code>~/.local/bin</code> so that it runs from any folder. <a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker Engine on Ubuntu</a>, <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Install kubectl on Linux</a>, <a href="https://kind.sigs.k8s.io/docs/user/quick-start/">kind quick start</a></p>
+<p>When the install script adds you to the <code>docker</code> group, <code>./course up</code> stops there. Log out and back in, or restart the machine if it is a virtual machine, then run <code>./course up</code> again to create the registry. <a href="https://docs.docker.com/engine/install/linux-postinstall/">Linux post-installation steps for Docker Engine</a></p>
+</div>
+<div class="tab-panel" data-os="macos" data-label="macOS (bash)">
+<pre><code class="language-bash">./course up
+</code></pre>
+<p>On a Mac, <code>./course up</code> checks Docker, kind and kubectl, creates the registry and reminds you that the path is not tested.</p>
+</div>
+</div>
+<p>The registry is part of the environment. It keeps the images you push in a Docker volume, so that the labs can pull them. Cleaning a lab never removes it.</p>
+
+<h3 id="docker-desktop">Docker Desktop</h3>
+<p>You do not need Docker Desktop, and the course does not use it. If you have it on Windows, it should be able to stay installed and running, but that is not tested yet. Keep its WSL integration off for <code>kubernetes-labs</code>, in Docker Desktop under Settings, Resources, WSL integration. Docker Desktop turns it on for the default WSL distribution, and whether <code>kubernetes-labs</code> becomes the default when it is your only distribution is not verified. The readiness report warns when the <code>docker</code> command of the distribution reaches Docker Desktop. <a href="https://docs.docker.com/desktop/features/wsl/">Docker Desktop WSL 2 backend on Windows</a></p>
+
+<h2 id="check-that-everything-is-ready">Check that everything is ready</h2>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">.\course.ps1 check
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<pre><code class="language-bash">./course check
+</code></pre>
+</div>
+</div>
+<p>The report changes nothing. It prints <code>[PASS]</code>, <code>[FAIL]</code> or <code>[WARN]</code> for WSL and the distribution on Windows, the tools and their versions, the registry, the kit and the cluster. Each <code>[FAIL]</code> comes with a hint, most often to run <code>course up</code> again. The version of Docker Engine is printed, not checked: the course works with the current release.</p>
+
+<h2 id="every-session">Every session: open, start, work</h2>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<p>Open a terminal in the distribution. It starts the distribution if it is stopped. You can also open "kubernetes-labs" from Windows Terminal.</p>
+<pre><code class="language-powershell">.\course.ps1 connect
+</code></pre>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<p>Open a terminal. Your machine is the environment, so there is nothing to connect to.</p>
+</div>
+</div>
+<p class="where">In the environment (bash)</p>
+<pre><code class="language-bash">course start 01
+</code></pre>
+<p>On Linux and macOS, <code>course</code> runs from any folder once <code>./course up</code> has put the launcher in <code>~/.local/bin</code>, which it offers on Linux only. Without it, run <code>./course start 01</code> from the kit folder.</p>
+<p><code>course start NN</code> is the one command to run when you begin a lab and every time you come back to it. It creates what the lab needs, starts what has stopped, and says which task you are on. Your files live in <code>~/work</code>, outside the kit.</p>
+<p>On Windows, the distribution stops by itself a few seconds after its last terminal closes. Your work in <code>~/work</code>, the registry and your cluster are kept, with everything you applied to it. The next <code>course start NN</code> brings the lab back, and repairs a cluster node that did not come back by itself. <code>.\course.ps1 stop</code> stops the distribution at once. <a href="https://learn.microsoft.com/windows/wsl/wsl-config">Advanced settings configuration in WSL</a></p>
+
+<h3 id="edit-files-from-vs-code">Edit files from VS Code</h3>
+<p>On Windows, VS Code edits the files of the distribution through its WSL extension, which installs a small VS Code server inside the distribution. Install VS Code on Windows with the option that adds it to the path, and the WSL extension. Then, in a terminal of the distribution, <code>code ~/work</code> opens your work folder. This has not been tried with the course yet, and neither has whether an open VS Code window keeps the distribution running. <a href="https://code.visualstudio.com/docs/remote/wsl">Developing in WSL</a></p>
+
+<h2 id="remove-the-environment">Remove the environment</h2>
+<div class="tabs">
+<div class="tab-panel" data-os="windows" data-label="Windows (PowerShell)">
+<pre><code class="language-powershell">.\course.ps1 destroy
+</code></pre>
+<p>This deletes the distribution <code>kubernetes-labs</code> with everything in it, and your work in <code>~/work</code> goes with it. Copy what you want to keep first. Windows shows the files of the distribution at <code>\\wsl.localhost\kubernetes-labs</code>. <a href="https://learn.microsoft.com/windows/wsl/basic-commands">Basic commands for WSL</a></p>
+</div>
+<div class="tab-panel" data-os="macos linux" data-label="macOS and Linux (bash)">
+<pre><code class="language-bash">./course destroy
+</code></pre>
+<p>This removes what belongs to the course: the cluster, the registry with the images you pushed, and the <code>course</code> launcher. It keeps Docker, kind, kubectl and your work in <code>~/work</code>.</p>
+</div>
+</div>
+
+<h2 id="sources">Sources</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/windows/wsl/install">How to install Linux on Windows with WSL</a> and <a href="https://learn.microsoft.com/windows/wsl/basic-commands">Basic commands for WSL</a></li>
+<li><a href="https://learn.microsoft.com/windows/wsl/wsl-config">Advanced settings configuration in WSL</a>, for the time after which WSL stops an idle distribution</li>
+<li><a href="https://ubuntu.com/wsl/docs/latest/howto/cloud-init/">Automatic setup of Ubuntu on WSL with cloud-init</a></li>
+<li><a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker Engine on Ubuntu</a></li>
+<li><a href="https://docs.docker.com/desktop/features/wsl/">Docker Desktop WSL 2 backend on Windows</a></li>
+<li><a href="https://docs.docker.com/engine/install/linux-postinstall/">Linux post-installation steps for Docker Engine</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Install kubectl on Linux</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/">kind quick start</a>, <a href="https://kind.sigs.k8s.io/docs/user/using-wsl2/">kind, using WSL2</a> and <a href="https://kind.sigs.k8s.io/docs/user/local-registry/">kind, local registry</a></li>
+<li><a href="https://git-scm.com/install/windows">Install Git for Windows</a></li>
+<li><a href="https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies">About execution policies</a></li>
+<li><a href="https://code.visualstudio.com/docs/remote/wsl">Developing in WSL</a> (VS Code documentation)</li>
+</ul>
+</main>
+<aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
+</div>
+<footer class="site-footer" id="site-footer"></footer>
+</body>
+</html>

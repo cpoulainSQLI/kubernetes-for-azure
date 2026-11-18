@@ -1,42 +1,64 @@
-# Checks the website against the lab kit, then publishes it to Azure Static Web Apps.
-# It runs on every push to main. The deployment starts only when every check passes.
+# Checks the website against the lab kit of each course, then publishes it to Azure Static Web Apps.
+# The checks run on every push, on any branch. The deployment runs on main only, and only when every check passes,
+# so a branch can carry work that is not ready to publish.
 # The secret AZURE_STATIC_WEB_APPS_API_TOKEN holds the deployment token of the Static Web Apps resource (infra/).
 name: Check and deploy the website
 
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-website
+  group: deploy-website-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     env:
-      KIT_DIR: ${{ github.workspace }}/kubernetes-for-azure-labs
+      KITS_DIR: ${{ github.workspace }}
     steps:
-      # The two repositories sit side by side, as on the author's computer, so that the checker of
-      # the website does not scan the kit as part of the site.
+      # The repositories sit side by side, as on the author's computer, so that the checker of the website does
+      # not scan a kit as part of the site. Each course under courses/<name>/ has its kit <name>-labs.
       - name: Check out the website
         uses: actions/checkout@v7
         with:
-          path: kubernetes-for-azure
+          path: website
 
-      - name: Check out the lab kit
+      # A branch of the website is checked against the branch of the same name in the kit when it exists,
+      # and against main otherwise. Delete a branch of the kit once it is merged, or a later website branch of
+      # the same name would be checked against it.
+      - name: Choose the branch of the kit
+        id: kit
+        env:
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          status=0
+          git ls-remote --exit-code "https://github.com/${OWNER}/kubernetes-labs.git" "refs/heads/${BRANCH}" > /dev/null || status=$?
+          case "$status" in
+            0) ref="$BRANCH" ;;
+            2) ref="main" ;;
+            *)
+              echo "Could not list the branches of the kit (git ls-remote exit code ${status})." >&2
+              exit 1
+              ;;
+          esac
+          echo "The website branch ${BRANCH} is checked against the kit at ${ref}."
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the kit of course 1
         uses: actions/checkout@v7
         with:
-          repository: ${{ github.repository_owner }}/kubernetes-for-azure-labs
-          ref: main
-          path: kubernetes-for-azure-labs
+          repository: ${{ github.repository_owner }}/kubernetes-labs
+          ref: ${{ steps.kit.outputs.ref }}
+          path: kubernetes-labs
 
       - name: HTML pages
-        working-directory: kubernetes-for-azure
+        working-directory: website
         run: npx --yes html-validate@11.21.1 "**/*.html"
 
       - name: Set up Terraform
@@ -46,18 +68,19 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform of the hosting
-        working-directory: kubernetes-for-azure
+        working-directory: website
         run: |
           terraform fmt -check -recursive infra
           terraform -chdir=infra init -backend=false -input=false > /dev/null
           terraform -chdir=infra validate
 
-      - name: Course rules, links, lab sheets, search index and checks against the kit
-        working-directory: kubernetes-for-azure
+      - name: Course rules, links, redirects, lab sheets, search index and checks against the kits
+        working-directory: website
         run: python3 scripts/check-course.py
 
   deploy:
     needs: checks
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the website
@@ -66,9 +89,9 @@ jobs:
       - name: Collect the pages
         run: |
           mkdir _site
-          cp -r ./*.html assets archive chapters solutions sample-app _site/
+          cp -r ./*.html staticwebapp.config.json assets archive courses _site/
 
-      - name: Name the account of the lab kit in assets/kit.js
+      - name: Name the account of the lab kits in assets/kit.js
         env:
           KIT_OWNER: ${{ github.repository_owner }}
         run: |

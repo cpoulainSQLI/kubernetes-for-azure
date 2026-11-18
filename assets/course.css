@@ -1,4 +1,4 @@
-/* Kubernetes and Azure Red Hat OpenShift, hands-on: shared styles for every page. */
+/* Kubernetes, hands-on: shared styles of every page. */
 
 :root {
   --brand: #0f6cbd;
@@ -400,6 +400,11 @@ figure.diagram figcaption { margin: 0; padding: 0 16px 16px; font-size: 14px; co
 .card .status.available { color: var(--ok); }
 .card .status.planned { color: var(--text-2); }
 .card.planned { background: var(--surface-2); }
+/* Course cards of the catalogue: wider, with the facts of each course. */
+.cards.courses { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.card-facts { margin: 4px 0 0; font-size: 13px; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; }
+.card-facts dt { color: var(--text-2); }
+.card-facts dd { margin: 0; }
 
 /* ---------- Responsive ---------- */
 

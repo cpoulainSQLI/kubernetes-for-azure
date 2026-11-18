@@ -3,41 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Home | Kubernetes and ARO course</title>
+<title>Kubernetes, hands-on</title>
 <link rel="stylesheet" href="assets/course.css">
 <script src="assets/search-index.js" defer></script>
 <script src="assets/course.js" defer></script>
 </head>
 <body data-root="" data-page="index.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
-<nav class="site-nav" id="site-nav" aria-label="Course"><a href="index.html">Course home</a></nav>
+<nav class="site-nav" id="site-nav" aria-label="Site"><a href="index.html">Home</a></nav>
 <main id="main" class="content">
 <div class="hero">
-<h1>Kubernetes and Azure Red Hat OpenShift, hands-on</h1>
-<p>From zero containers to an Azure Red Hat OpenShift (ARO) cluster. Every chapter ends with a lab that you run on your own Azure subscription, and a script that checks your work, stage by stage, and tells you what to fix.</p>
+<h1>Kubernetes, hands-on</h1>
+<p>Short courses on containers, Kubernetes and the platforms built on it. In each one you run labs on your own environment, and a script checks your work task by task and tells you what to fix.</p>
 </div>
 
-<p>The course is written for people who know basic Azure (the portal, subscriptions, resource groups, <code>az login</code>, virtual networks at a high level) and have never used containers or Kubernetes. <a href="introduction.html">Start with the Introduction</a>: it explains how the course works and what it costs, before the <a href="setup.html">setup</a>.</p>
-<p class="callout">Cost: about 1.50 EUR for the setup and chapters 1 and 2, and 8 to 9 EUR per three-hour ARO session in chapters 8 and 9 (chapters 3 to 7 are not priced yet). <a href="introduction.html#costs">What the course costs and how to keep it low</a>.</p>
+<p>Each course stands on its own. A later course expects you to know what an earlier one teaches, but not to have its labs or its environment. Each course says what you should be able to do before you start.</p>
+<p>The first courses run on your own computer, with no cloud account and no bill. Only the courses on Azure Kubernetes Service and Azure Red Hat OpenShift use Azure, and they will say what each lab costs before you run it.</p>
 
-<h2 id="outline">Outline</h2>
-<ul class="cards">
-<li class="card"><span class="card-part">Start here</span><a href="introduction.html">Introduction</a><p>What the course builds, the website and the lab kit, how a lab works, costs and cost habits.</p><span class="status available">Available</span></li>
-<li class="card"><span class="card-part">Start here</span><a href="setup.html">Setup</a><p>Tools, the lab kit, your settings, the lab VM built from code, the readiness report.</p><span class="status available">Available</span></li>
-<li class="card"><span class="card-part">Part 1, foundations</span><a href="chapters/01-containers/index.html">1. Containers</a><p>Images, layers, registries, running containers, non-root images.</p><span class="status available">Available</span></li>
-<li class="card"><span class="card-part">Part 1, foundations</span><a href="chapters/02-kubernetes-core/index.html">2. Kubernetes core</a><p>Pods, Deployments, Services, namespaces, labels, declarative YAML, rollouts.</p><span class="status available">Available</span></li>
-<li class="card planned"><span class="card-part">Part 2, Kubernetes in practice</span><span>3. Configuration, storage and exposure</span><p>ConfigMaps, Secrets, volumes, exposing an app outside the cluster.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 2, Kubernetes in practice</span><span>4. Access and security</span><p>Role-based access control, service accounts, security contexts.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 2, Kubernetes in practice</span><span>5. Helm and operators</span><p>Packaging and upgrading apps, what an operator does.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 3, managed platforms</span><span>6. Azure Kubernetes Service</span><p>A managed cluster on Azure, fed from Azure Container Registry.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 3, managed platforms</span><span>7. OpenShift on the Developer Sandbox</span><p>Projects, routes, security context constraints, the web console.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 4, Azure Red Hat OpenShift</span><span>8. ARO architecture and first cluster</span><p>Shared responsibility, prerequisites, a cluster created and deleted in one session.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 4, Azure Red Hat OpenShift</span><span>9. Operating ARO</span><p>Access, monitoring, upgrades and scaling.</p><span class="status planned">Planned</span></li>
-<li class="card planned"><span class="card-part">Part 4, Azure Red Hat OpenShift</span><span>10. ARO compared with AKS</span><p>A design note on readiness for a large enterprise workload, without installation.</p><span class="status planned">Planned</span></li>
+<h2 id="courses">Courses</h2>
+<ul class="cards courses">
+<li class="card"><span class="card-part">Course 1</span><a href="courses/kubernetes/index.html">Containers and Kubernetes</a>
+<p>Build a container image for a small web app, run it, push it to a registry, then run it on a Kubernetes cluster: Deployments, Services, configuration, storage, other workloads, access, packaging and debugging.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>You can use a terminal and edit text files. No container or Kubernetes knowledge.</dd>
+<dt>Runs on</dt><dd>Your computer: Windows with WSL 2, tested. Linux and macOS are not tested yet.</dd>
+<dt>Time</dt><dd>Not measured yet.</dd>
+<dt>Cost</dt><dd>None. No cloud account is needed.</dd>
+</dl>
+<span class="status available">Chapters 1 and 2 available, being rebuilt</span></li>
+<li class="card planned"><span class="card-part">Course 2</span><span>GitOps with Argo CD</span>
+<p>Let a cluster follow a Git repository: what GitOps means, how Argo CD compares what runs with what the repository says, and how you deliver a change with a commit.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>What course 1 teaches.</dd>
+<dt>Runs on</dt><dd>Your computer.</dd>
+<dt>Time and cost</dt><dd>Set when the course is designed.</dd>
+</dl>
+<span class="status planned">Planned</span></li>
+<li class="card planned"><span class="card-part">Course 3</span><span>Azure Kubernetes Service</span>
+<p>Run the same app on a managed cluster in Azure, fed from Azure Container Registry, and learn what the managed platform takes off your hands.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>What course 1 teaches, and Azure basics.</dd>
+<dt>Runs on</dt><dd>Azure, in your own subscription.</dd>
+<dt>Time and cost</dt><dd>Set when the course is designed.</dd>
+</dl>
+<span class="status planned">Planned</span></li>
+<li class="card planned"><span class="card-part">Course 4</span><span>Argo CD with AKS</span>
+<p>Bring GitOps to a managed cluster in Azure: Argo CD on Azure Kubernetes Service.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>What courses 2 and 3 teach.</dd>
+<dt>Runs on</dt><dd>Azure, in your own subscription.</dd>
+<dt>Time and cost</dt><dd>Set when the course is designed.</dd>
+</dl>
+<span class="status planned">Planned</span></li>
+<li class="card planned"><span class="card-part">Course 5</span><span>OpenShift</span>
+<p>See what OpenShift adds to Kubernetes: projects, routes, security context constraints, the web console and the operators that run the platform.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>What course 1 teaches.</dd>
+<dt>Runs on</dt><dd>Your computer.</dd>
+<dt>Time and cost</dt><dd>Set when the course is designed.</dd>
+</dl>
+<span class="status planned">Planned</span></li>
+<li class="card planned"><span class="card-part">Course 6</span><span>Azure Red Hat OpenShift</span>
+<p>Only what needs a real Azure Red Hat OpenShift cluster: its architecture, who is responsible for what, and a cluster created and deleted in one session.</p>
+<dl class="card-facts">
+<dt>Before you start</dt><dd>What course 5 teaches, and Azure basics.</dd>
+<dt>Runs on</dt><dd>Azure, in your own subscription.</dd>
+<dt>Time and cost</dt><dd>Set when the course is designed.</dd>
+</dl>
+<span class="status planned">Planned</span></li>
 </ul>
-<p>Contributors start with the <a href="style-guide.html">style guide</a>.</p>
+<p>The order of the courses may still change. <a href="about.html">About the courses</a> says who they are for and what stays out. Contributors start with the <a href="style-guide.html">style guide</a>.</p>
 </main>
 <aside class="page-toc" id="page-toc" aria-label="On this page"></aside>
 </div>

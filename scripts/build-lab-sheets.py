@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the lab sheet of each chapter: chapters/NN-name/lab-sheet.html.
+"""Builds the lab sheet of each chapter: courses/<course>/chapters/NN-name/lab-sheet.html.
 
 A lab sheet is the Lab section and the Clean up section of the chapter page, alone on
 one compact page, for a second screen or for printing. It is generated, so the chapter
@@ -19,18 +19,18 @@ TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lab sheet, {short} | Kubernetes and ARO course</title>
-<link rel="stylesheet" href="../../assets/course.css">
-<script src="../../assets/search-index.js" defer></script>
-<script src="../../assets/course.js" defer></script>
+<title>Lab sheet, {short} | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="{root}assets/course.css">
+<script src="{root}assets/search-index.js" defer></script>
+<script src="{root}assets/course.js" defer></script>
 </head>
-<body class="sheet" data-root="../../" data-page="{page}">
+<body class="sheet" data-root="{root}" data-page="{page}">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="{root}index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
 <nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="index.html">{title}</a></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">{course}</a> / <a href="index.html">{title}</a></nav>
 <h1 id="lab-sheet">Lab sheet, {short}</h1>
 <p class="lede">The lab of <a href="index.html">{title_lower}</a> on one page: tasks, acceptance criteria, commands and clean-up. The explanations are in the chapter. This page is generated from it.</p>
 {block}</main>
@@ -43,7 +43,7 @@ TEMPLATE = """<!DOCTYPE html>
 
 
 def chapter_pages():
-    return sorted(ROOT.glob("chapters/*/index.html"))
+    return sorted(ROOT.glob("courses/*/chapters/*/index.html"))
 
 
 def sheet_path(page):
@@ -66,11 +66,16 @@ def render(page):
         return f'href="index.html#{match.group(1)}"'
 
     block = re.sub(r'href="#([^"]+)"', anchor, block)
+    page_path = sheet_path(page).relative_to(ROOT).as_posix()
+    course_home = (page.parent.parent.parent / "index.html").read_text(encoding="utf-8")
+    course = re.search(r"<h1[^>]*>(.*?)</h1>", course_home, re.S).group(1).strip()
     return TEMPLATE.format(
+        root="../" * page_path.count("/"),
+        course=course,
         short=short,
         title=title,
         title_lower=title[0].lower() + title[1:],
-        page=sheet_path(page).relative_to(ROOT).as_posix(),
+        page=page_path,
         block=block,
     )
 

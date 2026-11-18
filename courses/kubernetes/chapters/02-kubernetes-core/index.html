@@ -3,19 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chapter 2: Kubernetes core | Kubernetes and ARO course</title>
-<link rel="stylesheet" href="../../assets/course.css">
-<script src="../../assets/search-index.js" defer></script>
-<script src="../../assets/course.js" defer></script>
+<title>Chapter 2: Kubernetes core | Kubernetes, hands-on</title>
+<link rel="stylesheet" href="../../../../assets/course.css">
+<script src="../../../../assets/search-index.js" defer></script>
+<script src="../../../../assets/course.js" defer></script>
 </head>
-<body data-root="../../" data-page="chapters/02-kubernetes-core/index.html">
+<body data-root="../../../../" data-page="courses/kubernetes/chapters/02-kubernetes-core/index.html">
 <a class="skip-link" href="#main">Skip to the content</a>
-<header class="site-header" id="site-header"><a class="brand" href="../../index.html">Kubernetes and Azure Red Hat OpenShift, hands-on</a></header>
+<header class="site-header" id="site-header"><a class="brand" href="../../../../index.html">Kubernetes, hands-on</a></header>
 <div class="layout">
-<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../index.html">Course home</a></nav>
+<nav class="site-nav" id="site-nav" aria-label="Course"><a href="../../../../index.html">Course home</a></nav>
 <main id="main" class="content">
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Home</a> / <a href="../../index.html#outline">Part 1, foundations</a></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="../../index.html">Containers and Kubernetes</a> / <a href="../../index.html#outline">Chapter 2</a></nav>
 <h1 id="chapter-2-kubernetes-core">Chapter 2: Kubernetes core</h1>
+<p class="callout warning">This chapter still describes the former Azure lab VM. It is being rebuilt for the environment of the <a href="../../setup.html">Setup</a> page. Its lab already runs there, with the local registry on <code>localhost:5001</code> in place of Azure Container Registry.</p>
 <p>Chapter 1 ran one container on one machine, by hand. Kubernetes runs many containers on many machines and keeps them in the state you describe. In this chapter you create a small Kubernetes cluster on the lab VM, deploy the sample app to it from YAML files, and watch Kubernetes scale it, heal it, update it and roll it back.</p>
 <h2 id="what-you-will-be-able-to-do">What you will be able to do</h2>
 <ul>
@@ -67,7 +68,7 @@
 </ul>
 <p>In this chapter, kind builds the whole cluster inside Docker on the lab VM: each node is a container, and the containers of your app run inside those node containers. <a href="https://kind.sigs.k8s.io/">kind</a> It behaves like a real cluster for everything in this chapter, but it lives and dies with the lab VM.</p>
 <figure class="diagram">
-<img src="../../assets/diagrams/ch02-cluster-architecture.png" width="880" height="696" alt="kubectl talks to the API server on the control plane node. The API server reads and writes etcd. The scheduler and the controller manager talk to the API server. On each worker node, the kubelet talks to the API server and runs pods.">
+<img src="../../../../assets/diagrams/ch02-cluster-architecture.png" width="880" height="696" alt="kubectl talks to the API server on the control plane node. The API server reads and writes etcd. The scheduler and the controller manager talk to the API server. On each worker node, the kubelet talks to the API server and runs pods.">
 <figcaption>The parts of a Kubernetes cluster.</figcaption>
 </figure>
 <details class="check-yourself">
@@ -80,7 +81,7 @@
 <li>Imperative commands say what to do now: <code>kubectl create deployment</code>, <code>kubectl scale</code>, <code>kubectl delete</code>. They are quick, but leave no record of the intended state.</li>
 <li>Declarative configuration says what should exist: you write YAML files that describe objects, and <code>kubectl apply -f &lt;file or folder&gt;</code> makes the cluster match them. Running it again changes nothing if nothing changed. The files can live in Git, be reviewed and be applied again on another cluster.</li>
 </ul>
-<p>This course works declaratively, the same way the Terraform files of the <a href="../../setup.html#infrastructure-as-code">setup</a> describe Azure resources.</p>
+<p>This course works declaratively, the same way the Terraform files of the <a href="../../setup.html">setup</a> describe Azure resources.</p>
 <p><code>kubectl diff -f &lt;file or folder&gt;</code> compares your files with the cluster and prints what <code>kubectl apply</code> would change, without changing anything. When it prints nothing, the files describe exactly what runs. <a href="https://kubernetes.io/docs/reference/kubectl/generated/kubectl_diff/">kubectl diff</a></p>
 <p>Every Kubernetes object in YAML has the same four top-level fields:</p>
 <table>
@@ -125,7 +126,7 @@
 <p>A ReplicaSet keeps a fixed number of identical pods running. It finds its pods by their labels, counts them, and creates or deletes pods until the count matches. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a></p>
 <p>A Deployment manages ReplicaSets for you, and adds updates and rollbacks on top. You describe the pods once, in the pod template of the Deployment, and say how many replicas (copies) you want. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployments</a></p>
 <figure class="diagram">
-<img src="../../assets/diagrams/ch02-deployment-service.png" width="880" height="552" alt="The Deployment sample-app owns two ReplicaSets: revision 1 runs sample-app:1.0.0 and owns the 5 pods, revision 2 ran sample-app:2.0.0 and is scaled to 0. The Service selects the pods by their label.">
+<img src="../../../../assets/diagrams/ch02-deployment-service.png" width="880" height="552" alt="The Deployment sample-app owns two ReplicaSets: revision 1 runs sample-app:1.0.0 and owns the 5 pods, revision 2 ran sample-app:2.0.0 and is scaled to 0. The Service selects the pods by their label.">
 <figcaption>How a Deployment, its ReplicaSets, the pods and a Service fit together.</figcaption>
 </figure>
 <p>Self-healing is the reconciliation loop at work. If you delete a pod, or its container crashes, or its node disappears, the count in the ReplicaSet no longer matches and a new pod is created. Kubernetes restarts a crashed container in place, and replaces a pod that is gone.</p>
@@ -164,7 +165,7 @@
 </table>
 <p>In the lab, the node addresses of kind are reachable from the lab VM, so a <code>NodePort</code> Service lets you test the app with <code>curl</code> from the VM.</p>
 <figure class="diagram">
-<img src="../../assets/diagrams/ch02-service-routing.png" width="880" height="488" alt="curl on the lab VM calls port 30080 of any node. The Service, with port 80 and targetPort 8080, sends the request to port 8080 of one of three pods, chosen by the label app.kubernetes.io/name=sample-app.">
+<img src="../../../../assets/diagrams/ch02-service-routing.png" width="880" height="488" alt="curl on the lab VM calls port 30080 of any node. The Service, with port 80 and targetPort 8080, sends the request to port 8080 of one of three pods, chosen by the label app.kubernetes.io/name=sample-app.">
 <figcaption>A request to the node port reaches port 8080 of one pod. Port 80 is the port that clients inside the cluster use.</figcaption>
 </figure>
 <details class="check-yourself">
@@ -241,7 +242,7 @@
 <h3 id="rolling-updates-and-rollbacks">Rolling updates and rollbacks</h3>
 <p>When you change the pod template of a Deployment, for example the image tag, the Deployment creates a new ReplicaSet and moves the replicas over gradually: it starts new pods, waits for them to be ready, and removes old ones. By default, it allows up to 25% more pods than requested (<code>maxSurge</code>) and up to 25% fewer ready pods (<code>maxUnavailable</code>) during the change, so the app stays available. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment">Rolling update</a></p>
 <figure class="diagram">
-<img src="../../assets/diagrams/ch02-rolling-update.png" width="880" height="416" alt="Before the update, the ReplicaSet of version 1.0.0 has 5 ready pods and the ReplicaSet of version 2.0.0 does not exist. During the update, the old one has 4 ready pods while the new one starts 3. After it, the old one has 0 pods and is kept for a rollback, and the new one has 5 ready pods.">
+<img src="../../../../assets/diagrams/ch02-rolling-update.png" width="880" height="416" alt="Before the update, the ReplicaSet of version 1.0.0 has 5 ready pods and the ReplicaSet of version 2.0.0 does not exist. During the update, the old one has 4 ready pods while the new one starts 3. After it, the old one has 0 pods and is kept for a rollback, and the new one has 5 ready pods.">
 <figcaption>With 5 replicas and the default limits, at most 7 pods exist and at least 4 are ready at any moment.</figcaption>
 </figure>
 <p>Each change of the template is a revision. The old ReplicaSets are kept, scaled to zero (10 of them by default), so that <code>kubectl rollout undo</code> can bring the previous template back. A rollback is itself a new revision: after rolling out version 2 (revision 2) and undoing it, the Deployment is at revision 3, running the template of revision 1. Changing only the number of replicas is not a new revision. <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment">Rolling back a Deployment</a></p>
